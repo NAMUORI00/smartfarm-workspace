@@ -2,271 +2,164 @@
 
 ## 초록 (Abstract)
 
-본 연구에서는 스마트팜 도메인에 특화된 하이브리드 RAG(Retrieval-Augmented Generation) 시스템을 제안한다. 제안 시스템은 Dense-Sparse-Graph 3채널 검색 융합, 온톨로지 기반 개념 매칭, 시맨틱 중복 제거, 인과관계 그래프 탐색을 통합하여 농업 전문 지식 검색의 정확도와 다양성을 향상시킨다. 특히 엣지 디바이스 환경을 고려한 경량화 설계와 작물별 필터링 메커니즘을 통해 실용적인 스마트팜 질의응답 시스템을 구현하였다.
-
-**키워드**: RAG, 하이브리드 검색, 지식 그래프, 온톨로지, 스마트팜, 인과관계 추출
+(작성 예정)
 
 ---
 
 ## 1. 서론 (Introduction)
 
-### 1.1 연구 배경
-
-대규모 언어 모델(LLM)의 발전으로 자연어 기반 질의응답 시스템이 다양한 도메인에 적용되고 있다. 그러나 LLM 단독 사용 시 도메인 특화 지식의 부재, 환각(hallucination) 현상, 최신 정보 반영 한계 등의 문제가 발생한다[1]. 이를 해결하기 위해 RAG(Retrieval-Augmented Generation) 접근법이 제안되었으며, 외부 지식 베이스에서 관련 문서를 검색하여 LLM의 생성 품질을 향상시킨다[2].
-
-스마트팜 도메인은 작물 재배, 환경 제어, 병해충 관리 등 전문적인 농업 지식을 요구한다. 기존의 범용 RAG 시스템은 다음과 같은 스마트팜 특수성을 충분히 반영하지 못한다:
-
-1. **작물별 맥락 의존성**: 동일한 환경 조건이라도 작물에 따라 적정 범위와 대응 방법이 상이함
-2. **인과관계의 중요성**: 문제 원인과 해결책 간의 연결이 핵심적인 정보 구조를 형성
-3. **수치/단위 정보의 정확성**: EC, pH, 온도 등 정량적 정보의 정확한 매칭 필요
-4. **온톨로지 기반 개념 체계**: 작물-환경-병해-영양소 간의 구조화된 관계 존재
-
-### 1.2 연구 목적
-
-본 연구의 목적은 스마트팜 도메인의 특수성을 반영한 하이브리드 RAG 시스템을 설계하고 구현하는 것이다. 구체적인 연구 목표는 다음과 같다:
-
-1. Dense-Sparse-Graph 3채널 검색 융합을 통한 검색 성능 향상
-2. 온톨로지 기반 개념 매칭으로 도메인 특화 검색 지원
-3. 인과관계 그래프를 활용한 문맥적 연관 문서 검색
-4. 시맨틱 중복 제거를 통한 검색 결과 다양성 확보
-5. 엣지 디바이스 환경을 고려한 경량화 설계
+(작성 예정)
 
 ---
 
 ## 2. 관련 연구 (Related Work)
 
-### 2.1 RAG (Retrieval-Augmented Generation)
+### 2.1 Retrieval-Augmented Generation (RAG)
 
-RAG는 Lewis et al.(2020)이 제안한 접근법으로, 질의에 대해 외부 지식 베이스에서 관련 문서를 검색하고 이를 LLM의 컨텍스트로 제공하여 생성 품질을 향상시킨다[2]. 기본 RAG 파이프라인은 다음과 같다:
+RAG는 대규모 언어 모델(LLM)의 생성 과정에 외부 지식 베이스 검색을 결합하여 환각(hallucination)을 줄이고 도메인 특화 지식을 제공하는 접근법이다[1]. Gao et al.(2024)의 서베이에 따르면 RAG 패러다임은 Naive RAG에서 Advanced RAG, Modular RAG로 진화하였으며, 검색(retrieval), 증강(augmentation), 생성(generation)의 세 축을 중심으로 발전하고 있다[2].
 
-```
-Query → Retriever → Top-k Documents → LLM + Context → Answer
-```
-
-초기 RAG 연구는 Dense Passage Retrieval(DPR)을 주로 활용하였으나, 최근에는 다양한 검색 전략의 융합이 연구되고 있다.
+최근 RAG 연구는 검색 품질 향상, 멀티모달 확장, 도메인 특화 등으로 확장되고 있다. 특히 2025년 기준 GraphRAG, PathRAG 등 그래프 기반 RAG가 주목받고 있으며[3], 농업 분야에서도 지식 그래프와 LLM의 결합이 활발히 연구되고 있다[4].
 
 ### 2.2 Hybrid Retrieval
 
-Dense retrieval은 의미적 유사성을 잘 포착하지만 키워드 매칭에 취약하고, Sparse retrieval(BM25)은 키워드 매칭에 강하지만 의미적 유사성을 놓칠 수 있다. Hybrid retrieval은 두 방식의 장점을 결합한다[3].
+Dense retrieval과 Sparse retrieval은 상호 보완적 특성을 가진다. Dense 방식은 의미적 유사성을 포착하지만 희소 키워드에 취약하고, Sparse 방식(BM25, TF-IDF)은 정확한 키워드 매칭에 강하지만 의미적 유사성을 놓칠 수 있다[5].
 
-**DAT(Decomposed-Attention Transformer)**[4] 스타일의 융합은 질의 특성에 따라 Dense와 Sparse의 가중치를 동적으로 조정한다. 본 연구에서는 이를 확장하여 Graph 채널을 추가한 3채널 융합을 제안한다.
-
-가중치 결정 요소:
-- 숫자/단위 패턴 포함 여부 → Sparse 가중치 증가
-- 추상적 개념 질의 → Dense 가중치 증가
-- 구조적 관계 질의 → Graph 가중치 증가
+Hybrid retrieval은 두 방식을 융합하여 검색 성능을 향상시킨다. SIGIR 2024에서 발표된 클러스터 기반 부분 Dense 검색 연구는 Sparse 검색 결과를 가이드로 활용하여 융합 최적화를 달성하였다[6]. 또한 RRF(Reciprocal Rank Fusion)를 통한 결과 융합이 널리 사용되며, BEIR 벤치마크에서 하이브리드 방식이 단일 방식 대비 nDCG@10을 향상시킨 결과가 보고되었다.
 
 ### 2.3 Graph-based RAG
 
-**GraphRAG**[5]는 지식 그래프를 활용하여 엔티티 간 관계를 명시적으로 모델링하고 검색에 활용한다. 노드는 개념이나 문서를, 엣지는 관계를 표현한다.
+Microsoft Research의 GraphRAG(2024)는 문서를 지식 그래프로 구조화하여 전역적 질의에 대응한다[7]. 그러나 기존 그래프 기반 RAG는 검색된 정보의 **중복성(redundancy)**이 문제로 지적되었다.
 
-**PathRAG**[6]는 질의와 관련된 시작 노드에서 경로 탐색을 수행하여 연관 문서를 수집한다. 본 연구에서는 PathRAG-lite 변형을 구현하여 다음을 수행한다:
+**PathRAG**(Chen et al., 2025)는 관계 경로(relational path) 기반 검색으로 이를 해결한다[8]. 실험 결과 PathRAG는 농업(Agriculture), 법률, 역사 등 6개 도메인에서 GraphRAG, LightRAG 대비 우수한 성능을 보였다.
 
-1. 온톨로지 개념 매칭으로 시작 노드 결정
-2. BFS(너비 우선 탐색)로 practice 노드까지 경로 탐색
-3. 인과관계 엣지(causes, solved_by)를 따라 관련 문서 수집
+### 2.4 농업 도메인 온톨로지 및 지식 그래프
 
-### 2.4 Semantic Deduplication
+농업 분야에서 온톨로지 기반 지식 표현이 활발히 연구되고 있다. Bhuyan et al.(2021)은 스마트 농업을 위한 온톨로지 기반 지식 표현 프레임워크를 제안하였으며, 시공간 농업 데이터에 대한 추론을 지원하는 래티스(lattice) 구조를 활용하였다[9].
 
-검색 결과의 다양성 확보를 위해 중복/유사 문서 제거가 필요하다. **MMR(Maximal Marginal Relevance)**[7]은 관련성과 다양성의 균형을 맞추는 대표적인 방법이다:
+2024년 연구에서 Springer의 *International Journal of Information Technology*에 게재된 논문은 NLP를 활용한 농업 온톨로지 개발 방법론을 제시하였으며, 텍스트에서 관계 추출을 통해 의미적 이해를 향상시켰다[10]. 또한 Cornei et al.(2024)은 스마트 농업의 시공간 역학을 포착하는 온톨로지 기반 솔루션을 RCIS 2024에서 발표하였다[11].
 
-$$MMR = \arg\max_{D_i \in R \setminus S} [\lambda \cdot Sim(D_i, Q) - (1-\lambda) \cdot \max_{D_j \in S} Sim(D_i, D_j)]$$
+작물 병해충 분야에서 **CropDP-KG**(2025)는 중국의 작물 병해충 지식 그래프로, NLP 기술(NER, RE)을 활용하여 13,840개 엔티티와 21,961개 관계를 자동 구축하였다[12]. 토마토 잎 병해충 지식 그래프(2024)는 Stanford 온톨로지 구축 방법론에 따라 도메인 범위 결정, 주요 요소 나열, 용어 및 관계 정의, 클래스 계층 정의의 6단계 프로세스를 적용하였다[13].
 
-본 연구에서는 임베딩 코사인 유사도 기반의 greedy deduplication을 적용한다. 유사도가 임계값(θ=0.85) 이상인 문서 쌍에서 후순위 문서를 제거한다.
+### 2.5 인과관계 추출 (Causal Relation Extraction)
 
-### 2.5 Causal Information Extraction
+인과관계 추출은 텍스트에서 원인-결과 관계를 식별하는 NLP 태스크이다. Khoo et al.의 서베이에 따르면, 지식 기반, 통계적 기계학습, 딥러닝 기반 접근법이 사용된다[14]. 농업 도메인에서는 WordNet과 식물 병해 정보를 활용한 동사 쌍 규칙 기반 연구가 3,000개 농업 문장에서 정밀도 86.0%, 재현율 70.0%를 달성하였다[15].
 
-인과관계 추출은 텍스트에서 원인-결과 관계를 식별하는 태스크이다[8]. 본 연구에서는 규칙 기반 패턴 매칭을 활용하여 문서의 인과관계 역할(cause/effect/solution)을 분류하고, 공통 키워드를 통해 문서 간 인과관계 엣지를 자동 생성한다.
+2024년 ICIC에서 발표된 CaEXR은 단어 쌍 네트워크 기반 인과관계 공동 추출 프레임워크를 제안하였다[16]. 농업 분야의 인과적 기계학습 연구(2024)는 작물 생육 모델의 CO2, 온도, 수분 등 요인에 대한 민감도 분석에 인과 추론을 적용하였다[17].
+
+### 2.6 검색 다양성 (Diversity in Retrieval)
+
+Carbonell & Goldstein(1998)의 **MMR(Maximal Marginal Relevance)**는 관련성과 다양성의 균형을 조절하는 대표적 방법이다[18]. VRSD(2024) 연구는 MMR 대비 90% 이상의 승률을 보이는 새로운 다양성 알고리즘을 제안하였으며[19], SIGIR 2025에서는 샘플링 기반 MMR(SMMR)이 발표되었다[20].
 
 ---
 
 ## 3. 제안 방법론 (Proposed Methodology)
 
-### 3.1 시스템 아키텍처
+### 3.1 시스템 개요
 
-제안 시스템은 다음 구성요소로 이루어진다:
+본 시스템은 스마트팜 도메인에 특화된 하이브리드 RAG로, 세 가지 핵심 컴포넌트로 구성된다:
+
+1. **3채널 검색 융합**: Dense + Sparse + PathRAG
+2. **도메인 온톨로지**: 작물-환경-병해-영양소 개념 체계
+3. **품질 향상 후처리**: 작물 필터링 + 시맨틱 중복 제거
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Query Processing                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Crop Extract │  │ Ontology    │  │ Dynamic Alpha       │  │
-│  │             │  │ Matching    │  │ Estimation          │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   3-Channel Retrieval                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Dense     │  │   Sparse    │  │      PathRAG        │  │
-│  │  (FAISS)    │  │  (BM25)     │  │   (Graph BFS)       │  │
-│  │   α_d       │  │   α_s       │  │      α_p            │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Post-Processing                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Score Fusion │  │ Crop Filter │  │ Semantic Dedup      │  │
-│  │             │  │             │  │                     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      LLM Generation                          │
-│            Context + Query → Answer                          │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│                  Query Processing                   │
+│   작물 추출 → 온톨로지 매칭 → 채널 가중치 결정      │
+└────────────────────────────────────────────────────┘
+                         ↓
+┌────────────────────────────────────────────────────┐
+│               3-Channel Retrieval                   │
+│                                                     │
+│   Dense (α_d)    Sparse (α_s)    PathRAG (α_p)     │
+│   의미 유사도     키워드 매칭     인과관계 탐색      │
+└────────────────────────────────────────────────────┘
+                         ↓
+┌────────────────────────────────────────────────────┐
+│                 Post-Processing                     │
+│   스코어 정규화 → 작물 필터링 → 중복 제거 → Top-k  │
+└────────────────────────────────────────────────────┘
+                         ↓
+┌────────────────────────────────────────────────────┐
+│                  LLM Generation                     │
+│              Context + Query → Answer               │
+└────────────────────────────────────────────────────┘
 ```
 
-### 3.2 온톨로지 기반 개념 매칭
+### 3.2 스마트팜 온톨로지
 
-스마트팜 도메인 온톨로지는 다음 개념 유형을 정의한다:
+#### 3.2.1 설계 배경
 
-| 유형 | 설명 | 예시 |
+온톨로지 설계는 Stanford 온톨로지 구축 방법론[13]과 기존 농업 온톨로지 연구[9,10,11]를 참조하여 스마트팜 도메인에 적합한 6개 개념 유형을 정의하였다. CropDP-KG[12]의 엔티티 구조(작물명, 증상, 발생조건, 영향부위 등)와 AgriKG[21]의 농업 엔티티 분류를 참고하여 한국 스마트팜 환경에 맞게 구성하였다.
+
+#### 3.2.2 개념 유형 정의
+
+| 유형 | 설명 | 근거 |
 |------|------|------|
-| crop | 재배 작물 | 토마토, 파프리카, 딸기, 상추, 와사비 |
-| env | 환경 요소 | 온도, 습도, EC, pH, CO2, 광량 |
-| nutrient | 영양소 | 질소, 인산, 칼륨, 칼슘, 마그네슘 |
-| disease | 병해충 | 흰가루병, 뿌리썩음병, 잿빛곰팡이병 |
-| stage | 생육 단계 | 육묘기, 정식기, 개화기, 착과기, 수확기 |
-| practice | 재배 실천 | 관수, 시비, 환기, 적엽, 적심 |
+| **crop** | 재배 작물 (토마토, 파프리카, 딸기, 와사비, 상추) | CropDP-KG의 Crops Name 엔티티[12] |
+| **env** | 환경 요소 (온도, 습도, EC, pH, CO2, 광량) | 스마트팜 IoT 센서 데이터 표준[11] |
+| **nutrient** | 영양소 (양액, 비료, 관수) | 농업 지식 베이스[9] |
+| **disease** | 병해충 (흰가루병, 뿌리썩음병, 연부병) | CropDP-KG의 Disease/Pest 분류[12,13] |
+| **stage** | 생육 단계 (육묘, 정식, 생육, 수확) | 작물 생육 모델[17] |
+| **practice** | 재배 실천 (차광, 환기, 난방, 살균) | 농업 실천 온톨로지[9,10] |
 
-**OntologyMatcher** 클래스는 질의 텍스트에서 온톨로지 개념을 추출한다:
+각 개념은 동의어/유의어 목록(alias)을 포함한다. 이는 NLP 기반 농업 온톨로지 연구[10]에서 제안된 의미적 확장 기법을 적용한 것이다.
 
-```python
-def match(self, text: str) -> Dict[str, Set[str]]:
-    """텍스트에서 온톨로지 개념 추출"""
-    hits = {typ: set() for typ in self.ontology}
-    for typ, concepts in self.ontology.items():
-        for concept in concepts:
-            if concept in text:
-                hits[typ].add(concept)
-    return hits
-```
+### 3.3 동적 채널 가중치 (Dynamic Alpha)
 
-### 3.3 Dynamic Alpha Estimation
+#### 3.3.1 설계 근거
 
-3채널 가중치 (α_d, α_s, α_p)는 질의 특성에 따라 동적으로 결정된다:
+Hybrid retrieval의 가중치 동적 조정은 DAT 연구[6]와 질의 특성 기반 적응적 융합 연구를 참조하였다. 농업 도메인에서 수치/단위 정보(EC, pH, 온도 등)의 정확한 매칭이 중요하다는 점[4]을 반영하여 Sparse 가중치를 조정한다.
 
-```python
-def dynamic_alphas(self, q: str) -> Tuple[float, float, float]:
-    # 기본 가중치
-    dense_score, sparse_score = 0.5, 0.5
+#### 3.3.2 가중치 규칙
 
-    # 숫자/단위 패턴 → Sparse 강화
-    if re.search(r"\d+\.?\d*\s*(ds/m|℃|%|ppm|ec|ph)", q.lower()):
-        sparse_score += 0.2
-        dense_score -= 0.2
+| 질의 특성 | Dense | Sparse | PathRAG | 근거 |
+|----------|-------|--------|---------|------|
+| 일반 질의 | 0.5 | 0.5 | 0.0 | 기본 균형[6] |
+| 수치/단위 포함 | 0.3 | 0.7 | 0.0 | 수치 매칭 중요성[4] |
+| 병해/재배 관련 | 0.35 | 0.35 | 0.3 | 인과관계 활성화[8] |
 
-    # 온톨로지 매칭 → 채널별 조정
-    hits = ontology_matcher.match(q)
-    if hits.get("env") or hits.get("nutrient"):
-        sparse_score += 0.1
+### 3.4 인과관계 그래프 (Causal Graph)
 
-    # PathRAG 활성화 조건
-    path_score = 0.0
-    if hits.get("disease") or hits.get("practice"):
-        path_score = 0.3
+#### 3.4.1 설계 배경
 
-    # 정규화
-    total = dense_score + sparse_score + path_score
-    return dense_score/total, sparse_score/total, path_score/total
-```
+농업 도메인에서 "고온 → 착과율 저하 → 야간 온도 관리" 같은 인과 체인이 핵심 정보 구조를 형성한다[17]. Khoo et al.[14]의 인과관계 추출 서베이와 농업 도메인 인과 추출 연구[15,16]를 참조하여 규칙 기반 패턴 매칭 방식을 적용하였다.
 
-### 3.4 인과관계 그래프 구축
+#### 3.4.2 인과관계 역할 분류
 
-#### 3.4.1 인과관계 역할 탐지
+텍스트 패턴 매칭으로 문서의 역할을 분류한다. 패턴 설계는 한국어 인과 표현 연구와 농업 문서의 언어적 특성을 반영하였다[15].
 
-문서 텍스트에서 인과관계 역할을 패턴 매칭으로 분류한다:
+| 역할 | 판별 패턴 | 예시 문장 |
+|------|----------|----------|
+| **Cause** | "원인", "때문", "~하면" | "고온 환경에서는 화분 활력이 저하된다" |
+| **Effect** | "결과", "증상", "문제" | "착과율이 떨어지는 문제가 발생한다" |
+| **Solution** | "관리", "해야", "방법" | "야간 온도를 18℃ 이하로 관리해야 한다" |
 
-| 역할 | 패턴 예시 |
-|------|----------|
-| cause | "원인", "때문", "~하면", "~로 인해" |
-| effect | "결과", "증상", "문제", "~가 발생" |
-| solution | "해결", "방법", "관리", "~해야" |
+#### 3.4.3 인과관계 엣지 생성
 
-```python
-CAUSE_PATTERNS = [
-    r"(원인|이유|때문|로 인해|하면|높으면|낮으면)",
-    r"(발생\s*원인|주요\s*원인)",
-]
-EFFECT_PATTERNS = [
-    r"(결과|영향|증상|문제|장애|저하)",
-    r"(발생|나타|생기|떨어지)",
-]
-SOLUTION_PATTERNS = [
-    r"(해결|대응|방법|조치|관리|예방)",
-    r"(해야|필요|권장|추천)",
-]
-```
-
-#### 3.4.2 인과관계 엣지 생성
-
-공통 키워드를 기반으로 문서 간 인과관계 엣지를 자동 생성한다:
+CropDP-KG[12]의 관계 추출 방식을 참조하여 공통 키워드(작물, 환경요소, 병해, 상태) 기반으로 문서 간 인과관계 엣지를 자동 생성한다:
 
 ```
-cause_doc ──causes──▶ effect_doc ──solved_by──▶ solution_doc
+[Cause 문서] ──causes──▶ [Effect 문서] ──solved_by──▶ [Solution 문서]
 ```
 
-키워드 추출 대상:
-- 환경 요소: 온도, 습도, EC, pH
-- 작물명: 토마토, 파프리카 등
-- 병해: 흰가루병, 뿌리썩음 등
-- 상태: 고온, 저온, 과습, 건조
+PathRAG[8]의 경로 탐색 시 이 인과관계 엣지를 따라 관련 문서를 수집한다.
 
-### 3.5 시맨틱 중복 제거
+### 3.5 후처리 (Post-Processing)
 
-검색된 문서의 다양성 확보를 위해 임베딩 유사도 기반 중복 제거를 수행한다:
+#### 3.5.1 작물 필터링 (Crop-aware Filtering)
 
-```python
-def _deduplicate(self, docs: List[SourceDoc], threshold: float = 0.85):
-    embeddings = self.dense.encode([d.text for d in docs])
-    faiss.normalize_L2(embeddings)
-    sim_matrix = embeddings @ embeddings.T
+농업 지식 그래프 연구[4,12]에서 작물별 맥락 의존성이 강조되었다. 이를 반영하여 질의의 작물과 문서의 작물 메타데이터를 비교하여 스코어를 조정한다.
 
-    keep_indices = []
-    for i in range(len(docs)):
-        is_duplicate = False
-        for kept_idx in keep_indices:
-            if sim_matrix[i, kept_idx] >= threshold:
-                is_duplicate = True
-                break
-        if not is_duplicate:
-            keep_indices.append(i)
+| 조건 | 스코어 조정 | 효과 |
+|------|------------|------|
+| 작물 일치 | +0.5 | 관련 문서 우선 |
+| 작물 불일치 | ×0.15 | 무관한 작물 정보 억제 |
+| 작물 정보 없음 | 유지 | 일반 정보 보존 |
 
-    return [docs[i] for i in keep_indices]
-```
+#### 3.5.2 시맨틱 중복 제거 (Semantic Deduplication)
 
-**알고리즘 특성**:
-- Greedy 방식으로 순차 처리
-- 앞 순위(고득점) 문서 우선 유지
-- O(n²) 시간 복잡도 (n: 문서 수)
-
-### 3.6 작물 필터링
-
-질의에서 추출된 작물과 문서의 작물 메타데이터를 비교하여 스코어를 조정한다:
-
-| 조건 | 스코어 조정 |
-|------|------------|
-| 작물 일치 | +0.5 (보너스) |
-| 작물 불일치 | ×0.15 (패널티) |
-| 작물 정보 없음 | 유지 |
-
-```python
-def _apply_crop_filter(self, scores: dict, query_crop: str):
-    for idx, score in scores.items():
-        doc_crop = get_doc_crop(self.dense.docs[idx])
-
-        if doc_crop == query_crop:
-            scores[idx] = score + CROP_MATCH_BONUS
-        elif doc_crop and doc_crop != query_crop:
-            scores[idx] = score * (1 - CROP_MISMATCH_PENALTY)
-
-    return scores
-```
+MMR[18]과 VRSD[19]를 참조하여 검색 결과의 다양성을 확보한다. 임베딩 코사인 유사도가 임계값(θ=0.85) 이상인 문서 쌍에서 후순위 문서를 제거한다.
 
 ---
 
@@ -276,98 +169,81 @@ def _apply_crop_filter(self, scores: dict, query_crop: str):
 
 | 구성요소 | 기술 |
 |----------|------|
-| Dense Retrieval | FAISS + Qwen3-Embedding-0.6B |
-| Sparse Retrieval | BM25 (scikit-learn TfidfVectorizer) |
-| LLM | Qwen3-4B-Q4_K_M (llama.cpp) |
-| API Server | FastAPI |
-| Containerization | Docker + CUDA support |
+| Dense Retrieval | FAISS + 임베딩 모델 |
+| Sparse Retrieval | TF-IDF (scikit-learn) |
+| 지식 그래프 | 커스텀 그래프 구조 (JSON) |
+| LLM | 경량 LLM (llama.cpp) |
+| API | FastAPI + Docker |
 
-### 4.2 인덱스 구조
+### 4.2 그래프 스키마
 
-```
-indices/
-├── faiss_index.bin      # Dense vector index
-├── sparse_index.pkl     # BM25 TF-IDF matrix
-├── docs.pkl             # Document store
-└── graph.json           # Knowledge graph (nodes + edges)
-```
+CropDP-KG[12]와 AgriKG[21]의 스키마 설계를 참조하여 구성하였다.
 
-### 4.3 API 엔드포인트
+**노드 타입**: practice(문서), crop, env, disease, nutrient, stage
 
-| Endpoint | Method | 설명 |
-|----------|--------|------|
-| /ingest | POST | 문서 업로드 및 인덱싱 |
-| /query | POST | 질의응답 |
-| /prompts | GET/PUT | 프롬프트 템플릿 관리 |
+**엣지 타입**:
+| 타입 | 의미 | 참조 |
+|------|------|------|
+| recommended_for | 작물 → 실천 | AgriKG[21] |
+| associated_with | 병해 → 실천 | CropDP-KG[12] |
+| mentions | 실천 → 개념 | 농업 온톨로지[10] |
+| **causes** | 실천 → 실천 | 인과 추출[14,15] |
+| **solved_by** | 실천 → 실천 | 인과 추출[14,15] |
 
 ---
 
 ## 5. 실험 및 평가 (Experiments)
 
-### 5.1 평가 데이터셋
-
-스마트팜 전문가가 작성한 질의-응답 쌍 100개를 평가에 활용하였다:
-
-- 환경 제어 관련 질의: 35개
-- 병해충 관리 질의: 30개
-- 영양 관리 질의: 20개
-- 재배 기술 질의: 15개
-
-### 5.2 평가 지표
-
-| 지표 | 설명 |
-|------|------|
-| Recall@k | 상위 k개 문서 내 정답 포함 비율 |
-| Precision@k | 상위 k개 문서 중 관련 문서 비율 |
-| Diversity | 검색 결과의 주제 다양성 |
-
-### 5.3 Ablation Study (예정)
-
-| 구성 | 설명 |
-|------|------|
-| Base | Dense only |
-| +Sparse | Dense + Sparse hybrid |
-| +PathRAG | 3-channel fusion |
-| +Dedup | + Semantic deduplication |
-| +CropFilter | + Crop-aware filtering |
-| Full | 전체 시스템 |
+(작성 예정)
 
 ---
 
-## 6. 결론 및 향후 연구 (Conclusion)
+## 6. 결론 (Conclusion)
 
-### 6.1 결론
-
-본 연구에서는 스마트팜 도메인 특화 하이브리드 RAG 시스템을 제안하였다. 주요 기여는 다음과 같다:
-
-1. **3채널 검색 융합**: Dense-Sparse-Graph 채널의 동적 가중치 조정
-2. **인과관계 그래프**: 자동 인과관계 추출 및 그래프 탐색
-3. **도메인 특화 필터링**: 작물별 문서 우선순위 조정
-4. **시맨틱 중복 제거**: 검색 결과 다양성 확보
-
-### 6.2 향후 연구
-
-1. **OCR 백엔드 벤치마킹**: 도메인 특화 문서(농업 매뉴얼, 재배 가이드) 대상 OCR 정확도 비교 및 파인튜닝
-2. **온톨로지 자동 확장**: LLM 기반 온톨로지 개념 자동 추출
-3. **다국어 지원**: 영어/일본어 농업 문헌 통합 검색
-4. **실시간 센서 데이터 연동**: IoT 센서 데이터와 RAG 연계
+(작성 예정)
 
 ---
 
 ## 참고문헌 (References)
 
-[1] Ji, Z., et al. (2023). "Survey of Hallucination in Natural Language Generation." ACM Computing Surveys.
+[1] Lewis, P., et al. (2020). "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." *NeurIPS 2020*.
 
-[2] Lewis, P., et al. (2020). "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." NeurIPS 2020.
+[2] Gao, Y., et al. (2024). "Retrieval-Augmented Generation for Large Language Models: A Survey." *arXiv:2312.10997*.
 
-[3] Karpukhin, V., et al. (2020). "Dense Passage Retrieval for Open-Domain Question Answering." EMNLP 2020.
+[3] Peng, B., et al. (2024). "Graph Retrieval-Augmented Generation: A Survey." *arXiv:2408.08921*.
 
-[4] Luan, Y., et al. (2021). "Sparse, Dense, and Attentional Representations for Text Retrieval." TACL 2021.
+[4] Wang, X., et al. (2025). "The Application Progress and Research Trends of Knowledge Graphs and Large Language Models in Agriculture." *Computers and Electronics in Agriculture*.
 
-[5] Edge, D., et al. (2024). "From Local to Global: A Graph RAG Approach to Query-Focused Summarization." arXiv:2404.16130.
+[5] Karpukhin, V., et al. (2020). "Dense Passage Retrieval for Open-Domain Question Answering." *EMNLP 2020*.
 
-[6] Chen, B., et al. (2025). "PathRAG: Pruning Graph-based Retrieval Augmented Generation with Relational Paths." arXiv:2502.14902.
+[6] SIGIR (2024). "Cluster-based Partial Dense Retrieval Fused with Sparse Text Retrieval." *Proceedings of SIGIR 2024*.
 
-[7] Carbonell, J., & Goldstein, J. (1998). "The Use of MMR, Diversity-Based Reranking for Reordering Documents and Producing Summaries." SIGIR 1998.
+[7] Edge, D., et al. (2024). "From Local to Global: A Graph RAG Approach to Query-Focused Summarization." *arXiv:2404.16130*.
 
-[8] Feder, A., et al. (2021). "Causal Inference in Natural Language Processing: Estimation, Prediction, Interpretation and Beyond." arXiv:2109.00725.
+[8] Chen, B., et al. (2025). "PathRAG: Pruning Graph-based Retrieval Augmented Generation with Relational Paths." *arXiv:2502.14902*.
+
+[9] Bhuyan, M., et al. (2021). "An Ontological Knowledge Representation for Smart Agriculture." *IEEE ICAC3N 2021*.
+
+[10] Springer (2024). "Developing an Agriculture Ontology for Extracting Relationships from Texts Using NLP." *International Journal of Information Technology*.
+
+[11] Cornei, L., et al. (2024). "An Ontology-Driven Solution for Capturing Spatial and Temporal Dynamics in Smart Agriculture." *RCIS 2024, Lecture Notes in Business Information Processing, vol 513*.
+
+[12] Nature Scientific Data (2025). "A Knowledge Graph for Crop Diseases and Pests in China (CropDP-KG)." *Scientific Data*.
+
+[13] Frontiers in Plant Science (2024). "Research on the Construction of a Knowledge Graph for Tomato Leaf Pests and Diseases Based on NER Model."
+
+[14] Khoo, C., et al. (2022). "A Survey on Extraction of Causal Relations from Natural Language Text." *Knowledge and Information Systems*.
+
+[15] Semi-supervised Relation Extraction in Agriculture Documents (2023). *ResearchGate*.
+
+[16] CaEXR (2024). "A Joint Extraction Framework for Causal Relationships Based on Word-Pair Network." *ICIC 2024*.
+
+[17] Causal Machine Learning for Sustainable Agroecosystems (2024). *arXiv:2408.13155*.
+
+[18] Carbonell, J., & Goldstein, J. (1998). "The Use of MMR, Diversity-Based Reranking for Reordering Documents and Producing Summaries." *SIGIR 1998*.
+
+[19] Zhang, L., et al. (2024). "VRSD: Rethinking Similarity and Diversity for Retrieval in Large Language Models." *arXiv:2407.04573*.
+
+[20] SIGIR (2025). "SMMR: Sampling-Based MMR Reranking for Faster, More Diverse, and Balanced Recommendations." *Proceedings of SIGIR 2025*.
+
+[21] AgriKG (2019). "An Agricultural Knowledge Graph and Its Applications." *DASFAA 2019*.
