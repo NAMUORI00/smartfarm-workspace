@@ -1,0 +1,6 @@
+[submodule "era-smartfarm-rag"]
+	path = era-smartfarm-rag
+	url = https://github.com/NAMUORI00/era-smartfarm-rag-qwen3-edge.git
+[submodule "dataset-pipeline"]
+	path = dataset-pipeline
+	url = https://github.com/NAMUORI00/smartfarm-dataset-pipeline.git
