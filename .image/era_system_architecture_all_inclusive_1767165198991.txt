@@ -1,0 +1,22 @@
+A clean, content-rich technical diagram of the 'Edge-RAG-Anything (ERA)' architecture. Style: Professional Academic Infographic (Original Style). Minimalist 2D/Flat style. White background. Color Palette: Slate Blue (Core), Sage Green (Domain), Amber (Logic).
+
+Layout:
+1. **Input**: 'User Query' -> **'Intent Analysis'** (Splits flow).
+
+2. **Path A (Question - Detailed ERA Internals)**:
+   - 'Intent Analysis' -> **'Query Analysis'** (Tags).
+   - -> **'Hybrid Retrieval'** (Box containing: **'Dense'**, **'Sparse'**, **'PathRAG'**).
+   - -> **'Dynamic Weighting'**.
+   - -> **'Resource Check'** (Diamond shape).
+   - -> Branch High RAM: **'Cross-Encoder'**.
+   - -> Branch Low RAM: **'LLM Judge'**.
+   - -> **'Qwen3-4B'** (Generation) -> 'Final Answer'.
+
+3. **Path B (Task Request - Control Flow)**:
+   - 'Intent Analysis' -> **'LLM (Action Plan)'**.
+   - -> **'User Feedback/Permission'** (Explicit Check).
+   - -> **'Device Controller'** (Large Block).
+   - -> **Smart Farm Devices** (Fan, Heater, Pump icons).
+   - -> **'Execution Result'** -> 'Final Answer'.
+
+4. **Visuals**: Show ALL these components clearly. Use arrows to show the flow. Ensure the diagram is balanced.

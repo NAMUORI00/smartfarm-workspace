@@ -1,0 +1,11 @@
+A clean, content-rich technical diagram of the 'Edge-RAG-Anything (ERA)' architecture. Style: Professional Academic Infographic (Original Style). Minimalist 2D/Flat style. White background. Color Palette: Slate Blue (Core), Sage Green (Domain), Amber (Logic).
+Layout:
+1. **Start**: 'User Query' -> **'Intent Analysis'**.
+2. **Path A (Question)**: 'Intent Analysis' -> 'Retrieval' -> 'LLM' -> 'Final Answer'.
+3. **Path B (Task Request)**:
+   - 'Intent Analysis' -> **'LLM (Action Plan)'**.
+   - 'LLM' -> **'User Feedback/Permission'** (Explicit Check).
+   - 'Permission' -> **'Device Controller'** (Large, Central Block).
+   - 'Device Controller' -> **Smart Farm Devices** (Fan, Heater, Pump icons).
+   - 'Device Controller' -> **'Execution Result'** -> **'Final Answer'**.
+4. **Visuals**: Ensure 'Device Controller' has ample space. Show the loop: Plan -> Ask User -> Control -> Result clearly.

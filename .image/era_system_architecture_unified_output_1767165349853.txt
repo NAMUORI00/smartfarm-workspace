@@ -1,0 +1,22 @@
+A clean, content-rich technical diagram of the 'Edge-RAG-Anything (ERA)' architecture. Style: Professional Academic Infographic (Original Style). Minimalist 2D/Flat style. White background. Color Palette: Slate Blue (Core), Sage Green (Domain), Amber (Logic).
+
+Layout:
+1. **Input**: 'User Query' -> **'Intent Analysis'** (Splits flow).
+
+2. **Path A (Question)**:
+   - 'Intent Analysis' -> **'Hybrid Retrieval'** (Dense/Sparse/PathRAG).
+   - -> **'Dynamic Weighting'** -> **'Resource Check'**.
+   - -> **'Qwen3-4B'**.
+
+3. **Path B (Task Request)**:
+   - 'Intent Analysis' -> **'LLM (Action Plan)'**.
+   - -> **'User Feedback/Permission'**.
+   - -> **'Device Controller'** -> **Smart Farm Devices**.
+   - -> **'Execution Result'**.
+   - -> **CRITICAL CHANGE**: 'Execution Result' connects INTO **'Qwen3-4B'**.
+
+4. **Unified Output**:
+   - Both Path A (Retrieval Context) and Path B (Execution Result) feed into **'Qwen3-4B'**.
+   - **'Qwen3-4B'** generates the **'Final Answer'**.
+
+5. **Visuals**: Ensure arrows clearly show both paths merging at 'Qwen3-4B' before the Final Answer.
