@@ -162,6 +162,35 @@ class BaseRetriever(ABC):
 
 ---
 
+## Documentation
+
+All documentation MUST be stored in the **workspace root `docs/` directory**, not in submodules.
+
+### Directory Structure
+
+```
+docs/
+├── README.md                      # Document index
+├── methodology/                   # Research methodology, related work
+├── validation/                    # Validation reports, benchmarks
+├── dataset/                       # Dataset cards, limitations
+└── paper/                         # Paper drafts, figures
+    └── figures/
+```
+
+### Rules
+
+| Document Type | Location | Examples |
+|---------------|----------|----------|
+| Validation reports | `docs/validation/` | `ERA_RAG_VALIDATION_REPORT.md` |
+| Paper drafts | `docs/paper/` | `experiments_section_draft.md` |
+| Dataset documentation | `docs/dataset/` | `DATASET_CARD.md`, `LIMITATIONS.md` |
+| Methodology/Design | `docs/methodology/` | `smartfarm-rag-methodology.md` |
+
+**NEVER** create documentation in submodule directories (`era-smartfarm-rag/docs/`, `dataset-pipeline/docs/`).
+
+---
+
 ## Important Notes
 
 1. **Submodules**: Commit in each subdir first, then update workspace refs
@@ -169,3 +198,4 @@ class BaseRetriever(ABC):
 3. **Korean**: Comments/docstrings may be Korean - maintain consistency
 4. **No CI/CD**: Run tests manually before commits
 5. **LLM Tests**: Most require `API_KEY` env var
+6. **Documentation**: All docs in workspace root `docs/` (see Documentation section above)
