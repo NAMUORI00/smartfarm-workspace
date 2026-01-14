@@ -23,7 +23,7 @@
 
 **통계적 한계:**
 
-본 데이터셋은 BEIR (수천~수백만 문서)나 LegalBench-RAG (6,889 QA)에 비해 소규모이다. Card et al. (2020)의 분석에 따르면, N=220에서 80% 검정력으로 검출 가능한 최소 효과 크기(MDE)는 약 **4-5% MRR 차이**이다. 이보다 작은 개선은 통계적으로 유의하지 않을 수 있으며, Wilson score interval (95% CI)을 사용하여 소표본 편향을 완화한다.
+본 데이터셋은 BEIR (수천~수백만 문서)나 LegalBench-RAG (6,889 QA)에 비해 소규모이다. Card et al. (2020)의 분석에 따르면, N=220에서 80% 검정력으로 검출 가능한 최소 효과 크기(MDE)는 약 **4-5% MRR 차이**이다. 이보다 작은 개선은 통계적으로 유의하지 않을 수 있다. 비율 지표(Hit Rate, Precision)에는 Wilson score interval을, 연속 지표(MRR, NDCG)에는 표준편차를 함께 보고하여 소표본 불확실성을 명시한다.
 
 ### 5.1.2 Baselines
 
@@ -34,7 +34,7 @@
 | **Dense-only** | FAISS 임베딩 유사도 검색 | 의미적 유사성 |
 | **Sparse-only** | TF-IDF 키워드 매칭 | 정확한 용어 매칭 |
 | **Naive Hybrid** | 고정 가중치 결합 (α=0.5) | 단순 융합 |
-| **Proposed (HybridDAT)** | 동적 가중치 + 온톨로지 + 작물 필터 + 중복 제거 | 도메인 특화 |
+| **Proposed (HybridDAT)** | Dense+Sparse+PathRAG 3채널 융합 + 동적 가중치 + 온톨로지 + 작물 필터 + 중복 제거 | 도메인 특화 |
 
 > **구현 참고**: 베이스라인 수식 및 HybridDAT 상세 알고리즘은 Section 3.3 참조. 모든 베이스라인은 공정한 비교를 위해 동일 임베딩 모델로 자체 구현하였다. Sparse 검색은 소규모 말뭉치에서 BM25의 IDF 추정 불안정성을 고려하여 TF-IDF를 사용하였다.
 
@@ -94,14 +94,15 @@
 
 **Table 2: Ablation Results (N=220)**
 
-| Configuration | DAT | Onto | Crop | Dedup | MRR | ΔMRR |
-|---------------|-----|------|------|-------|-----|------|
-| Base (Naive) | - | - | - | - | [TBD] | -- |
-| +DAT | ✓ | - | - | - | [TBD] | +[TBD] |
-| +DAT+Onto | ✓ | ✓ | - | - | [TBD] | +[TBD] |
-| +DAT+Onto+Crop | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
-| +DAT+Onto+Dedup | ✓ | ✓ | - | ✓ | [TBD] | +[TBD] |
-| **Full (Proposed)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
+| Configuration | DAT | Onto | Crop | Dedup | PathRAG | MRR | ΔMRR |
+|---------------|-----|------|------|-------|---------|-----|------|
+| Base (Naive) | - | - | - | - | - | [TBD] | -- |
+| +DAT | ✓ | - | - | - | - | [TBD] | +[TBD] |
+| +DAT+Onto | ✓ | ✓ | - | - | - | [TBD] | +[TBD] |
+| +DAT+Onto+Crop | ✓ | ✓ | ✓ | - | - | [TBD] | +[TBD] |
+| +DAT+Onto+Dedup | ✓ | ✓ | - | ✓ | - | [TBD] | +[TBD] |
+| +DAT+Onto+PathRAG | ✓ | ✓ | - | - | ✓ | [TBD] | +[TBD] |
+| **Full (Proposed)** | ✓ | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
 
 *Δ는 Base 대비 누적 개선. 컴포넌트 간 상호작용으로 개별 기여도 합이 전체와 불일치할 수 있음.*
 
@@ -111,6 +112,7 @@
 2. **Ontology**: 도메인 개념 매칭으로 환경/영양 질의에서 효과적
 3. **Crop Filter**: 작물 일치 문서 우선, 불일치 문서 억제
 4. **Dedup**: 유사 문서 제거로 검색 결과 다양성 확보
+5. **PathRAG**: 인과관계 그래프 기반 3채널 검색으로 병해/재배 질의에서 관계 경로 활용
 
 ### 5.2.3 Domain Analysis (RQ3)
 
@@ -181,7 +183,7 @@
 | Internal | 베이스라인 구현 편향 | 동일 인프라/모델 사용, 코드 공개 |
 | External | 단일 도메인 | "pilot study"로 범위 명시 |
 | Construct | K=4 비표준 | 근거 명시, Appendix B에 K=1,5,10 제공 |
-| Statistical | 소표본 | MDE 명시, Wilson CI 사용 |
+| Statistical | 소표본 | MDE 명시, 비율 지표에 Wilson CI, 연속 지표에 std 보고 |
 
 ---
 
