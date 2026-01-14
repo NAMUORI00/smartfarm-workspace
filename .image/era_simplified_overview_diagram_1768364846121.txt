@@ -1,0 +1,29 @@
+A simplified, high-level overview diagram of 'ERA-SmartFarm-RAG' based on a specific layout.
+Style: Clean, Minimalist, High Contrast, White Background.
+Layout: Vertical Flow with Central Storage.
+
+**Header**: "Edge Device (8GB RAM, Offline Capable)"
+
+**1. Ingestion Pipeline (Top)**
+- Flow: [Data Sources] -> [Text Extraction] -> [Embedding] -> [Index & Graph Build]
+- Arrow points DOWN to Knowledge Store.
+
+**2. Knowledge Store (Center)**
+- Large Box containing: [Dense Index] [Sparse Index] [Causal Graph] [Ontology]
+
+**3. Cache Layer (Dashed Box below Store)**
+- [Query Cache] [Embedding Cache] [Response Cache]
+
+**4. Retrieval Pipeline (Below Cache)**
+- Flow: [Query Analysis] -> [3-Channel Search] -> [Context Shaping]
+- Arrow points DOWN from Cache/Store.
+
+**5. Generation Pipeline (Bottom)**
+- Flow: [Prompt Build] -> [LLM] -> [Response (+ Fallback Chain)]
+
+**Footer (Dashed Box)**: "Monitoring: [Query Latency] [Cache Hit Rate] [Fallback Usage]"
+
+Visuals:
+- Use clear, simple boxes and arrows.
+- Color Code: Ingestion (Green), Retrieval (Blue), Generation (Amber), Store (Grey).
+- Focus on the flow of data through the central store.

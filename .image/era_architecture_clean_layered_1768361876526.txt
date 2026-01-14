@@ -1,0 +1,32 @@
+A strictly aligned, clean 6-layer system architecture diagram of 'ERA-SmartFarm-RAG' with Korean labels.
+Style: High-End Technical Block Diagram. Minimalist, Flat, High Contrast. White Background.
+Layout: 6 Distinct Horizontal Layers (Stacked Top to Bottom).
+
+**Layer 5 (Top): Application & Policy**
+- [Streamlit UI] [FastAPI REST] [Offline Fallback Policy]
+- Color: Amber (Logic)
+
+**Layer 4: Generation & Grounding**
+- [Prompt Template] [TemplateResponder]
+- Color: Slate Blue (Core)
+
+**Layer 3: Context Shaping (Core Contribution)**
+- [Crop Filter] [Semantic Dedup] [Memory-aware Reranking]
+- Color: Slate Blue (Core)
+
+**Layer 2: Retrieval Core (3-Channel)**
+- [Dense (FAISS)] [Sparse (TF-IDF)] [PathRAG-lite]
+- Color: Slate Blue (Core)
+
+**Layer 1: On-device Knowledge Store**
+- [dense.faiss] [sparse.pkl] [Causal Graph] [Ontology]
+- Color: Sage Green (Data)
+
+**Layer 0 (Bottom): Device & Runtime**
+- [llama.cpp (Qwen3)] [Embedding (MiniLM)] [FAISS (mmap)]
+- Color: Grey (Infrastructure)
+
+Visuals:
+- Use straight, orthogonal arrows pointing DOWN between layers to show dependency.
+- Align boxes in a grid-like structure.
+- Ensure text is legible.
