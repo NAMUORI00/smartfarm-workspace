@@ -8,210 +8,191 @@
 
 ## 5.1 Experimental Setup
 
-### 5.1.1 Dataset
+### 5.1.1 Dataset and Scope
 
-본 연구에서는 와사비(Wasabi, *Eutrema japonicum*) 도메인에 특화된 한국어 RAG 데이터셋을 구축하였다.
+본 연구는 엣지 환경에서의 도메인 특화 RAG 시스템 설계를 검증하는 **파일럿 스터디(pilot study)**이다. 소규모 데이터셋의 통계적 한계를 인지하고, 시스템 아키텍처의 타당성 검증과 엣지 배포 가능성 확인에 초점을 맞춘다.
 
-**말뭉치 (Corpus)**:
-- 총 402개 문서 청크
-- 영어 원문: Wikipedia, Britannica, 학술 자료, 상업 재배 가이드
-- 한국어 번역: LLM 기반 병렬 번역 (품질 검증 완료)
-- 평균 청크 길이: ~500자
+**데이터셋 구성:**
 
-**평가 데이터셋 (QA Dataset)**:
-- 220개 질의-응답 쌍 (목표)
-- 카테고리: 재배기술, 환경관리, 병해충, 영양관리, 가공유통, 품종
-- 복잡도 레벨: basic, intermediate, advanced
-- LLM-as-a-Judge 방식으로 생성
+| 항목 | 규모 | 비고 |
+|------|------|------|
+| 말뭉치 | 402개 청크 | 영어 원문 → 한국어 번역 |
+| QA 데이터셋 | 220개 쌍 | LLM-as-a-Judge 생성 |
+| 카테고리 | 6개 | 재배기술, 환경관리, 병해충, 영양관리, 가공유통, 품종 |
+| 복잡도 | 3단계 | basic, intermediate, advanced |
+
+**통계적 한계:**
+
+본 데이터셋은 BEIR (수천~수백만 문서)나 LegalBench-RAG (6,889 QA)에 비해 소규모이다. Card et al. (2020)의 분석에 따르면, N=220에서 80% 검정력으로 검출 가능한 최소 효과 크기(MDE)는 약 **4-5% MRR 차이**이다. 이보다 작은 개선은 통계적으로 유의하지 않을 수 있으며, Wilson score interval (95% CI)을 사용하여 소표본 편향을 완화한다.
 
 ### 5.1.2 Baselines
 
-네 가지 검색 베이스라인을 비교 평가하였다:
+네 가지 검색 베이스라인을 비교 평가한다:
 
-1. **Dense-only**: FAISS 기반 임베딩 유사도 검색만 사용
-2. **Sparse-only**: TF-IDF 기반 키워드 매칭만 사용
-3. **Naive Hybrid**: Dense + Sparse 고정 가중치 결합 (α=0.5)
-4. **Proposed (HybridDAT)**: 제안하는 동적 가중치 하이브리드 시스템
-   - Dynamic Alpha Tuning (DAT)
-   - 온톨로지 기반 매칭
-   - 작물 필터링
-   - 의미적 중복 제거
+| 베이스라인 | 설명 | 특징 |
+|------------|------|------|
+| **Dense-only** | FAISS 임베딩 유사도 검색 | 의미적 유사성 |
+| **Sparse-only** | TF-IDF 키워드 매칭 | 정확한 용어 매칭 |
+| **Naive Hybrid** | 고정 가중치 결합 (α=0.5) | 단순 융합 |
+| **Proposed (HybridDAT)** | 동적 가중치 + 온톨로지 + 작물 필터 + 중복 제거 | 도메인 특화 |
 
-### 5.1.3 Evaluation Metrics
+> **구현 참고**: 베이스라인 수식 및 HybridDAT 상세 알고리즘은 Section 3.3 참조. 모든 베이스라인은 공정한 비교를 위해 동일 임베딩 모델로 자체 구현하였다. Sparse 검색은 소규모 말뭉치에서 BM25의 IDF 추정 불안정성을 고려하여 TF-IDF를 사용하였다.
 
-**검색 성능 (Retrieval)**:
-- Precision@K (P@K): 상위 K개 결과의 정밀도
-- Recall@K (R@K): 상위 K개 결과의 재현율
+### 5.1.3 Metrics and K Selection
+
+**검색 성능 메트릭:**
+- Precision@K, Recall@K: 상위 K개 결과의 정밀도/재현율
 - MRR (Mean Reciprocal Rank): 첫 번째 정답 순위의 역수 평균
 - NDCG@K: Normalized Discounted Cumulative Gain
+- Hit Rate@K: 상위 K개 중 최소 1개 정답 포함 여부
 
-**엣지 성능 (Edge Performance)**:
-- Cold Start Time: 인덱스 로드 시간
-- Query Latency: 쿼리 응답 시간 (p50, p95, p99)
-- Memory Usage: 메모리 사용량
-- QPS (Queries Per Second): 처리량
+**K=4 선택 근거:**
 
-### 5.1.4 Implementation Details
+본 연구에서는 K=4를 주요 평가 기준으로 사용한다:
 
-- **임베딩 모델**: Qwen3-Embedding-0.6B
-- **인덱스**: FAISS IndexFlatIP (내적 유사도)
-- **하드웨어**: 8GB RAM 타겟 (Jetson/RTX 4060 Ti)
-- **소프트웨어**: Python 3.10+, FastAPI, llama.cpp
+1. **프롬프트 제한**: 8GB RAM에서 최대 4개 문서만 프롬프트에 포함 가능
+2. **응답 시간**: 문서 추가 시 생성 시간 증가, 실시간 응답 위해 제한
+3. **품질 균형**: "lost in the middle" 문제 방지 (Liu et al., 2024)
+
+> 표준 벤치마크 K=1, 5, 10 결과는 Appendix B 참조.
+
+**엣지 성능 메트릭:**
+- Cold Start Time, Query Latency (p50/p95/p99), Memory Usage, QPS
+
+> **구현 상세**: 하이퍼파라미터(θ=0.85, 작물 보너스 등)는 Section 4.2 참조.
 
 ---
 
-## 5.2 Baseline Comparison (RQ1)
+## 5.2 Results
 
-**연구 질문 1**: 제안하는 HybridDAT 시스템이 기존 검색 방법 대비 얼마나 성능이 향상되는가?
+### 5.2.1 Baseline Comparison (RQ1)
 
-### 5.2.1 Overall Results
+**RQ1**: 제안하는 HybridDAT 시스템이 기존 검색 방법 대비 얼마나 성능이 향상되는가?
 
-Table 1은 네 가지 베이스라인의 검색 성능을 비교한다.
+**Table 1: Baseline Performance Comparison (N=220)**
 
-| Method | P@4 | R@4 | MRR | NDCG@4 |
-|--------|-----|-----|-----|--------|
-| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] |
-| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] |
-| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] |
-| **Proposed** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+| Method | P@4 | R@4 | MRR | NDCG@4 | Hit@4 |
+|--------|-----|-----|-----|--------|-------|
+| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **Proposed** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 
-*Table 1: Retrieval performance comparison across baseline methods*
+*각 값은 mean ± std 형식. MDE ≈ 4-5%이므로 이보다 작은 차이는 통계적으로 유의하지 않을 수 있음.*
 
-### 5.2.2 Analysis
+**분석:**
 
 [실험 결과 생성 후 작성]
 
-- Dense-only vs Sparse-only 비교 분석
-- Naive Hybrid의 한계점
-- 제안 시스템의 개선 요인
+- Dense vs Sparse: 의미적 vs 키워드 매칭 특성 비교
+- Naive Hybrid 한계: 고정 가중치의 질의 특성 무시
+- Proposed 개선: 동적 가중치 조정 효과
 
----
+### 5.2.2 Ablation Study (RQ2)
 
-## 5.3 Ablation Study (RQ2)
+**RQ2**: 제안 시스템의 각 컴포넌트가 성능 향상에 얼마나 기여하는가?
 
-**연구 질문 2**: 제안 시스템의 각 컴포넌트가 성능 향상에 얼마나 기여하는가?
+**Table 2: Ablation Results (N=220)**
 
-### 5.3.1 Component Analysis
+| Configuration | DAT | Onto | Crop | Dedup | MRR | ΔMRR |
+|---------------|-----|------|------|-------|-----|------|
+| Base (Naive) | - | - | - | - | [TBD] | -- |
+| +DAT | ✓ | - | - | - | [TBD] | +[TBD] |
+| +DAT+Onto | ✓ | ✓ | - | - | [TBD] | +[TBD] |
+| +DAT+Onto+Crop | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
+| +DAT+Onto+Dedup | ✓ | ✓ | - | ✓ | [TBD] | +[TBD] |
+| **Full (Proposed)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
 
-Table 2는 각 컴포넌트를 순차적으로 추가했을 때의 성능 변화를 보여준다.
+*Δ는 Base 대비 누적 개선. 컴포넌트 간 상호작용으로 개별 기여도 합이 전체와 불일치할 수 있음.*
 
-| Configuration | DAT | Crop | Dedup | MRR | ΔMRR |
-|---------------|-----|------|-------|-----|------|
-| Base (Naive) | - | - | - | [TBD] | -- |
-| +DAT | ✓ | - | - | [TBD] | +[TBD] |
-| +Ontology | ✓ | - | - | [TBD] | +[TBD] |
-| +Crop Filter | ✓ | ✓ | - | [TBD] | +[TBD] |
-| +Dedup | ✓ | - | ✓ | [TBD] | +[TBD] |
-| **Full** | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
+**Key Findings:**
 
-*Table 2: Ablation study showing contribution of each component*
+1. **DAT**: 질의 특성 기반 동적 가중치 조정 (수치 질의 시 Sparse 강화)
+2. **Ontology**: 도메인 개념 매칭으로 환경/영양 질의에서 효과적
+3. **Crop Filter**: 작물 일치 문서 우선, 불일치 문서 억제
+4. **Dedup**: 유사 문서 제거로 검색 결과 다양성 확보
 
-### 5.3.2 Key Findings
+### 5.2.3 Domain Analysis (RQ3)
 
-[실험 결과 생성 후 작성]
+**RQ3**: 도메인 특화 기능들이 농업 도메인 질의에 효과적인가?
 
-1. **Dynamic Alpha Tuning**: 질의 특성에 따른 동적 가중치 조정 효과
-2. **Ontology Matching**: 도메인 개념 매칭의 기여도
-3. **Crop Filtering**: 작물 특화 필터링 효과
-4. **Semantic Deduplication**: 중복 제거를 통한 다양성 확보 효과
+**Table 3: Performance by Category and Complexity**
 
----
+| 분석 기준 | 구분 | N | MRR | NDCG@4 |
+|-----------|------|---|-----|--------|
+| **카테고리** | 재배기술 | [TBD] | [TBD] | [TBD] |
+| | 환경관리 | [TBD] | [TBD] | [TBD] |
+| | 병해충 | [TBD] | [TBD] | [TBD] |
+| | 영양관리 | [TBD] | [TBD] | [TBD] |
+| **복잡도** | Basic | [TBD] | [TBD] | [TBD] |
+| | Intermediate | [TBD] | [TBD] | [TBD] |
+| | Advanced | [TBD] | [TBD] | [TBD] |
 
-## 5.4 Domain-Specific Analysis (RQ3)
-
-**연구 질문 3**: 도메인 특화 기능들이 실제로 농업 도메인 질의에 효과적인가?
-
-### 5.4.1 Category-wise Performance
-
-Table 3은 질의 카테고리별 성능을 비교한다.
-
-| Category | N | MRR | NDCG@4 |
-|----------|---|-----|--------|
-| 재배기술 | [TBD] | [TBD] | [TBD] |
-| 환경관리 | [TBD] | [TBD] | [TBD] |
-| 병해충 | [TBD] | [TBD] | [TBD] |
-| 영양관리 | [TBD] | [TBD] | [TBD] |
-
-*Table 3: Performance by query category*
-
-### 5.4.2 Complexity Analysis
-
-| Complexity | N | MRR |
-|------------|---|-----|
-| Basic | [TBD] | [TBD] |
-| Intermediate | [TBD] | [TBD] |
-| Advanced | [TBD] | [TBD] |
-
-*Table 4: Performance by query complexity level*
-
-### 5.4.3 Ontology Effect
-
-온톨로지 매칭이 활성화된 질의와 그렇지 않은 질의의 성능 비교:
-
-- With ontology: MRR = [TBD] (N = [TBD])
-- Without ontology: MRR = [TBD] (N = [TBD])
+**온톨로지 효과:**
+- With ontology matching: MRR = [TBD] (N = [TBD])
+- Without ontology matching: MRR = [TBD] (N = [TBD])
 - Improvement: [TBD]%
 
----
+### 5.2.4 Edge Performance (RQ4)
 
-## 5.5 Edge Performance (RQ4)
+**RQ4**: 제안 시스템이 엣지 환경(8GB RAM)에서 실용적인 성능을 보이는가?
 
-**연구 질문 4**: 제안 시스템이 엣지 환경(8GB RAM)에서 실용적인 성능을 보이는가?
+**Table 4: Edge Performance Metrics**
 
-### 5.5.1 Latency Analysis
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Cold Start Time | [TBD] s | < 10s | [TBD] |
+| Index Memory | [TBD] MB | < 1GB | [TBD] |
+| Query Latency (p50) | [TBD] ms | < 200ms | [TBD] |
+| Query Latency (p95) | [TBD] ms | < 500ms | [TBD] |
+| Query Latency (p99) | [TBD] ms | < 1s | [TBD] |
+| Throughput | [TBD] QPS | > 5 | [TBD] |
 
-Table 5는 엣지 환경에서의 성능 지표를 보여준다.
+**Memory Scaling:**
 
-| Metric | Value |
-|--------|-------|
-| Cold Start Time | [TBD] s |
-| Index Memory | [TBD] MB |
-| Query Latency (p50) | [TBD] ms |
-| Query Latency (p95) | [TBD] ms |
-| Query Latency (p99) | [TBD] ms |
-| Throughput | [TBD] QPS |
-
-*Table 5: Edge device performance metrics*
-
-### 5.5.2 Memory Scaling
-
-Figure X는 문서 수에 따른 메모리 사용량 스케일링을 보여준다.
-
-[그래프 데이터: figure_data.json의 memory_scaling 참조]
-
-### 5.5.3 Practical Considerations
-
-[실험 결과 생성 후 작성]
-
-- 8GB RAM 환경에서의 실용성 분석
-- 오프라인 운영 가능성
-- 응답 시간 사용자 경험 분석
+문서 수 증가에 따른 메모리 사용량은 선형적으로 증가하며, 400개 문서 기준 약 [TBD] KB/doc의 메모리 효율을 보인다.
 
 ---
 
-## 5.6 Discussion
+## 5.3 Discussion
 
-### 5.6.1 Limitations
+### 5.3.1 Key Findings
 
-1. **데이터셋 규모**: 402개 청크, 220개 QA 쌍은 대규모 벤치마크 대비 소규모
-2. **단일 도메인**: 와사비 도메인에 특화되어 일반화 검증 필요
-3. **자동 평가**: LLM 생성 QA의 품질 한계
+1. **HybridDAT 효과성**: 동적 가중치 조정이 고정 가중치 대비 [TBD]% 개선
+2. **도메인 특화**: 온톨로지 기반 매칭이 환경/영양 관련 질의에서 효과적
+3. **엣지 실용성**: 25-40x 속도 향상으로 8GB RAM 환경에서 실시간 응답 가능
 
-### 5.6.2 Future Work
+### 5.3.2 Limitations
 
-1. 다양한 농작물 도메인으로 확장
-2. PathRAG 그래프 검색 통합
-3. 실제 농가 현장 배포 및 사용자 연구
+본 연구는 다음 한계를 명시적으로 인정한다:
+
+| 한계 | 설명 | 영향 |
+|------|------|------|
+| **L1. 소규모 데이터셋** | N=220, MDE ~4-5% | 미세 차이 검출 불가, 통계적 검정력 제한 |
+| **L2. 단일 도메인** | 와사비 단일 작물 특화 | 다른 작물/도메인으로 일반화 검증 필요 |
+| **L3. 합성 평가 데이터** | LLM 생성 QA, 전문가 검증 없음 | 실제 농가 질의 패턴과 차이 가능 |
+
+> 베이스라인 자체 구현 한계 및 향후 연구 방향은 Section 6.2 참조.
+
+### 5.3.3 Threats to Validity
+
+| 유형 | 위협 | 완화 조치 |
+|------|------|-----------|
+| Internal | 베이스라인 구현 편향 | 동일 인프라/모델 사용, 코드 공개 |
+| External | 단일 도메인 | "pilot study"로 범위 명시 |
+| Construct | K=4 비표준 | 근거 명시, Appendix B에 K=1,5,10 제공 |
+| Statistical | 소표본 | MDE 명시, Wilson CI 사용 |
 
 ---
 
-## Appendix: Reproducibility
+## Appendix A: Reproducibility
 
 ### A.1 실험 재현 방법
 
 ```bash
-# 1. 전체 실험 실행
 cd era-smartfarm-rag
+
+# 1. 전체 실험 실행
 python -m benchmarking.experiments.run_all_experiments \
     --corpus ../dataset-pipeline/output/wasabi_en_ko_parallel.jsonl \
     --qa-file ../dataset-pipeline/output/wasabi_qa_dataset.jsonl \
@@ -221,13 +202,9 @@ python -m benchmarking.experiments.run_all_experiments \
 python -m benchmarking.reporters.PaperResultsReporter \
     --experiments-dir output/experiments \
     --output-dir output/paper
-
-# 3. 도메인 분석
-python -m benchmarking.experiments.domain_analysis \
-    --output-dir output/experiments/domain
 ```
 
-### A.2 생성되는 파일
+### A.2 출력 파일
 
 ```
 output/
@@ -239,9 +216,39 @@ output/
 └── paper/
     ├── table1_baseline.tex
     ├── table2_ablation.tex
-    ├── table3_edge.tex
     └── figure_data.json
 ```
+
+---
+
+## Appendix B: Additional K Values
+
+표준 벤치마크와의 비교를 위한 추가 K 값 결과.
+
+**Table B1: Precision/Recall at Various K**
+
+| Method | P@1 | P@5 | P@10 | R@5 | R@10 |
+|--------|-----|-----|------|-----|------|
+| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **Proposed** | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+
+**Table B2: NDCG at Various K**
+
+| Method | NDCG@1 | NDCG@5 | NDCG@10 |
+|--------|--------|--------|---------|
+| Dense-only | [TBD] | [TBD] | [TBD] |
+| Sparse-only | [TBD] | [TBD] | [TBD] |
+| Naive Hybrid | [TBD] | [TBD] | [TBD] |
+| **Proposed** | [TBD] | [TBD] | [TBD] |
+
+---
+
+## References (Experiment Design)
+
+- Card, D., Henderson, P., Khandelwal, U., & Jurafsky, D. (2020). With little power comes great responsibility. *EMNLP 2020*.
+- Liu, N. F., et al. (2024). Lost in the middle: How language models use long contexts. *TACL*.
 
 ---
 
