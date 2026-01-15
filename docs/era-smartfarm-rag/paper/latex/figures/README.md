@@ -7,25 +7,35 @@ LaTeX 논문용 그림 파일을 섹션별로 관리합니다.
 ```
 figures/
 ├── architecture/     # 시스템 아키텍처 다이어그램
-│   ├── 6-layer-stack.pdf
-│   └── system-overview.pdf
+│   └── 6-layer-stack.pdf       # fig:architecture
 ├── methodology/      # 방법론 관련 그림
-│   ├── hybriddat-flow.pdf
-│   ├── pathrag-lite.pdf
-│   └── context-shaping.pdf
+│   ├── hybriddat-flow.pdf      # fig:hybriddat
+│   └── context-shaping.pdf     # fig:context_shaping
 └── experiments/      # 실험 결과 그래프
-    ├── baseline-comparison.pdf
-    ├── ablation-study.pdf
-    └── edge-performance.pdf
+    ├── baseline-comparison.pdf # (optional)
+    └── edge-performance.pdf    # (optional)
 ```
+
+## Current Placeholders (TODO)
+
+논문에서 현재 placeholder로 표시된 그림 목록:
+
+| Figure | Label | Location | Description |
+|--------|-------|----------|-------------|
+| Figure 1 | `fig:architecture` | methodology.tex | 6-Layer Stack Architecture |
+| Figure 2 | `fig:hybriddat` | methodology.tex | HybridDAT Retrieval Flow |
+| Figure 3 | `fig:context_shaping` | methodology.tex | Context Shaping Pipeline |
 
 ## Usage in LaTeX
 
 `main.tex`에서 `\graphicspath`가 설정되어 있으므로, 파일명만으로 참조 가능:
 
 ```latex
+% 현재 placeholder 코드:
+\fbox{\parbox{...}{...}}
+
+% 실제 이미지로 교체 시:
 \includegraphics[width=\textwidth]{6-layer-stack}
-\includegraphics[width=0.8\textwidth]{hybriddat-flow}
 ```
 
 ## Supported Formats

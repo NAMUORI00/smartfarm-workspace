@@ -1,0 +1,17 @@
+% Table: 베이스라인 비교 대상
+% Label: tab:baselines
+\begin{table}[htbp]
+	\centering
+	\caption{베이스라인 비교 대상}
+	\label{tab:baselines}
+	\begin{tabular}{@{}llp{5cm}@{}}
+		\toprule
+		\textbf{베이스라인}       & \textbf{설명}              & \textbf{특징} \\
+		\midrule
+		Dense-only           & FAISS 임베딩 유사도 검색         & 의미적 유사성     \\
+		Sparse-only          & TF-IDF 키워드 매칭            & 정확한 용어 매칭   \\
+		Naive Hybrid         & 고정 가중치 결합 ($\alpha$=0.5) & 단순 융합       \\
+		Proposed (HybridDAT) & 3채널 융합 + 동적 가중치 + 온톨로지   & 도메인 특화      \\
+		\bottomrule
+	\end{tabular}
+\end{table}

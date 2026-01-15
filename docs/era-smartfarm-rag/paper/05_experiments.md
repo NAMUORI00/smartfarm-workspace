@@ -1,8 +1,6 @@
 # 5. 실험 및 평가 (Experiments)
 
 > **Note**: 이 문서는 논문의 실험 섹션입니다. 실제 실험 결과가 생성되면 수치를 업데이트해야 합니다.
-> 
-> **AI 사용 명시**: 이 문서의 초안 작성에 AI 어시스턴트(Claude)가 사용되었습니다.
 
 ---
 
@@ -252,13 +250,4 @@ output/
 - Card, D., Henderson, P., Khandelwal, U., & Jurafsky, D. (2020). With little power comes great responsibility. *EMNLP 2020*.
 - Liu, N. F., et al. (2024). Lost in the middle: How language models use long contexts. *TACL*.
 
----
 
-## AI Usage Statement
-
-This paper was prepared with assistance from AI language models (Claude by Anthropic) for:
-- Code implementation and debugging
-- Documentation drafting
-- Experimental design suggestions
-
-All scientific claims, experimental results, and conclusions were verified and validated by the human authors.

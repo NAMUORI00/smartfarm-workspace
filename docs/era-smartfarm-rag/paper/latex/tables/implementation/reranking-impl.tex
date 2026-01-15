@@ -1,0 +1,16 @@
+% Table: 메모리 적응형 리랭킹 설정
+% Label: tab:reranking_impl
+\begin{table}[htbp]
+	\centering
+	\caption{메모리 적응형 리랭킹 설정}
+	\label{tab:reranking_impl}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{가용 RAM}    & \textbf{리랭커} & \textbf{설명}         \\
+		\midrule
+		$<$ 0.8GB          & none         & 리랭킹 비활성화            \\
+		0.8GB $\sim$ 1.5GB & LLM-lite     & llama.cpp 기반 경량 리랭킹 \\
+		$\geq$ 1.5GB       & BGE          & BGE-reranker-v2-m3  \\
+		\bottomrule
+	\end{tabular}
+\end{table}

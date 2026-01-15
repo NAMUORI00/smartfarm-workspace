@@ -1,0 +1,19 @@
+% Table: 계층별 역할 및 핵심 컴포넌트
+% Label: tab:layers
+\begin{table}[htbp]
+	\centering
+	\caption{계층별 역할 및 핵심 컴포넌트}
+	\label{tab:layers}
+	\begin{tabular}{@{}clp{5cm}@{}}
+		\toprule
+		\textbf{계층} & \textbf{역할}     & \textbf{핵심 컴포넌트}          \\
+		\midrule
+		L5          & 사용자 인터페이스 및 정책  & FastAPI, Streamlit, 폴백 정책 \\
+		L4          & 응답 생성 및 그라운딩    & 프롬프트 템플릿, 템플릿 응답기         \\
+		L3          & 컨텍스트 압축 (논문 핵심) & 작물 필터, 중복 제거, 리랭킹         \\
+		L2          & 3채널 하이브리드 검색    & Dense, Sparse, PathRAG 융합 \\
+		L1          & 온디바이스 지식 저장소    & FAISS 인덱스, 인과관계 그래프, 온톨로지 \\
+		L0          & 디바이스 런타임        & llama.cpp, 임베딩 모델, FAISS  \\
+		\bottomrule
+	\end{tabular}
+\end{table}

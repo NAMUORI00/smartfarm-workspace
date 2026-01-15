@@ -1,0 +1,17 @@
+% Table: 실험 데이터셋 구성
+% Label: tab:dataset
+\begin{table}[htbp]
+	\centering
+	\caption{실험 데이터셋 구성}
+	\label{tab:dataset}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{항목} & \textbf{규모} & \textbf{비고}                     \\
+		\midrule
+		말뭉치         & 402개 청크     & 영어 원문 $\rightarrow$ 한국어 번역      \\
+		QA 데이터셋     & 220개 쌍      & LLM-as-a-Judge 생성               \\
+		카테고리        & 6개          & 재배기술, 환경관리, 병해충, 영양관리, 가공유통, 품종 \\
+		복잡도         & 3단계         & basic, intermediate, advanced   \\
+		\bottomrule
+	\end{tabular}
+\end{table}

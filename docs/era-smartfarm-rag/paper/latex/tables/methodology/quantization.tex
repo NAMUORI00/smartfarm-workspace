@@ -1,0 +1,17 @@
+% Table: LLM 양자화 수준별 비교
+% Label: tab:quantization
+\begin{table}[htbp]
+	\centering
+	\caption{LLM 양자화 수준별 비교 (4B 모델 기준)}
+	\label{tab:quantization}
+	\begin{tabular}{@{}llll@{}}
+		\toprule
+		\textbf{양자화 수준}   & \textbf{메모리} & \textbf{품질 손실} & \textbf{적용 환경}      \\
+		\midrule
+		FP16 (원본)         & $\sim$8GB    & 없음             & 서버 환경 (GPU 필수)      \\
+		INT8              & $\sim$4GB    & 최소             & 고사양 엣지 (8GB RAM)    \\
+		\textbf{Q4\_K\_M} & $\sim$2.5GB  & 낮음             & \textbf{일반 엣지 (권장)} \\
+		Q2\_K             & $\sim$1.5GB  & 중간             & 극저사양 환경             \\
+		\bottomrule
+	\end{tabular}
+\end{table}

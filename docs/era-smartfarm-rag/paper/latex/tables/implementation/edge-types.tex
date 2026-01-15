@@ -1,0 +1,18 @@
+% Table: 그래프 엣지 타입 정의
+% Label: tab:edge_types
+\begin{table}[htbp]
+	\centering
+	\caption{그래프 엣지 타입 정의}
+	\label{tab:edge_types}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{타입}               & \textbf{의미}         & \textbf{참조}              \\
+		\midrule
+		\texttt{recommended\_for} & 작물 $\rightarrow$ 실천 & AgriKG~\cite{ref21}      \\
+		\texttt{associated\_with} & 병해 $\rightarrow$ 실천 & CropDP-KG~\cite{ref12}   \\
+		\texttt{mentions}         & 실천 $\rightarrow$ 개념 & 농업 온톨로지~\cite{ref10}     \\
+		\texttt{causes}           & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
+		\texttt{solved\_by}       & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
+		\bottomrule
+	\end{tabular}
+\end{table}

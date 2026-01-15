@@ -1,0 +1,19 @@
+% Table: 서버 및 엣지 환경별 기술 스택
+% Label: tab:tech_stack
+\begin{table}[htbp]
+	\centering
+	\caption{서버 및 엣지 환경별 기술 스택}
+	\label{tab:tech_stack}
+	\begin{tabular}{@{}llll@{}}
+		\toprule
+		\textbf{구성요소}    & \textbf{서버 환경}               & \textbf{엣지 환경}       & \textbf{참조}        \\
+		\midrule
+		Dense Retrieval  & FAISS + Qwen3-Embedding-0.6B & FAISS + MiniLM-L6    & \cite{ref25,ref26} \\
+		Sparse Retrieval & TF-IDF (scikit-learn)        & TF-IDF (동일)          & -                  \\
+		지식 그래프           & 커스텀 그래프 (JSON)               & 서브셋 그래프              & -                  \\
+		LLM              & llama.cpp (FP16/INT8)        & llama.cpp (Q4\_K\_M) & \cite{ref23}       \\
+		API              & FastAPI + Docker             & FastAPI (경량)         & -                  \\
+		오프라인 폴백          & -                            & 캐시 + 규칙 기반           & \cite{ref24,ref29} \\
+		\bottomrule
+	\end{tabular}
+\end{table}

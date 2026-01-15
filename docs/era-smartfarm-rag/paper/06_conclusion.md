@@ -47,13 +47,4 @@
 
 (감사의 글 작성 예정)
 
----
 
-## AI Usage Statement
-
-This paper was prepared with assistance from AI language models (Claude by Anthropic) for:
-- Code implementation and debugging
-- Documentation drafting
-- Experimental design suggestions
-
-All scientific claims, experimental results, and conclusions were verified and validated by the human authors.

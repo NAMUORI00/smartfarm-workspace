@@ -6,23 +6,7 @@
 
 \subsection{기술 스택}
 
-\begin{table}[htbp]
-	\centering
-	\caption{서버 및 엣지 환경별 기술 스택}
-	\label{tab:tech_stack}
-	\begin{tabular}{@{}llll@{}}
-		\toprule
-		\textbf{구성요소}    & \textbf{서버 환경}               & \textbf{엣지 환경}       & \textbf{참조}        \\
-		\midrule
-		Dense Retrieval  & FAISS + Qwen3-Embedding-0.6B & FAISS + MiniLM-L6    & \cite{ref25,ref26} \\
-		Sparse Retrieval & TF-IDF (scikit-learn)        & TF-IDF (동일)          & -                  \\
-		지식 그래프           & 커스텀 그래프 (JSON)               & 서브셋 그래프              & -                  \\
-		LLM              & llama.cpp (FP16/INT8)        & llama.cpp (Q4\_K\_M) & \cite{ref23}       \\
-		API              & FastAPI + Docker             & FastAPI (경량)         & -                  \\
-		오프라인 폴백          & -                            & 캐시 + 규칙 기반           & \cite{ref24,ref29} \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+\input{tables/implementation/tech-stack}
 
 \subsection{핵심 모듈 구현}
 
@@ -84,20 +68,7 @@ FAISS(Facebook AI Similarity Search) 기반 Dense 검색을 담당한다.
 
 런타임 가용 메모리에 따라 리랭커를 동적으로 선택한다:
 
-\begin{table}[htbp]
-	\centering
-	\caption{메모리 적응형 리랭킹 설정}
-	\label{tab:reranking_impl}
-	\begin{tabular}{@{}lll@{}}
-		\toprule
-		\textbf{가용 RAM}    & \textbf{리랭커} & \textbf{설명}         \\
-		\midrule
-		$<$ 0.8GB          & none         & 리랭킹 비활성화            \\
-		0.8GB $\sim$ 1.5GB & LLM-lite     & llama.cpp 기반 경량 리랭킹 \\
-		$\geq$ 1.5GB       & BGE          & BGE-reranker-v2-m3  \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+\input{tables/implementation/reranking-impl}
 
 \textbf{설정 파라미터:}
 \begin{itemize}
@@ -110,20 +81,7 @@ FAISS(Facebook AI Similarity Search) 기반 Dense 검색을 담당한다.
 
 오프라인 환경 지원을 위해 인덱스를 파일로 저장/로드한다:
 
-\begin{table}[htbp]
-	\centering
-	\caption{인덱스 파일 구조}
-	\label{tab:index_files}
-	\begin{tabular}{@{}lll@{}}
-		\toprule
-		\textbf{파일}                & \textbf{내용}      & \textbf{형식}      \\
-		\midrule
-		\texttt{dense.faiss}       & 문서 임베딩 벡터 인덱스    & Binary (mmap 가능) \\
-		\texttt{dense\_docs.jsonl} & 문서 텍스트 및 메타데이터   & JSON Lines       \\
-		\texttt{sparse.pkl}        & TF-IDF 키워드 빈도 행렬 & Pickle           \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+\input{tables/implementation/index-files}
 
 \subsection{그래프 스키마}
 
@@ -132,62 +90,16 @@ CropDP-KG~\cite{ref12}와 AgriKG~\cite{ref21}의 스키마 설계를 참조하�
 \textbf{노드 타입}: practice(문서), crop, env, disease, nutrient, stage
 
 \textbf{엣지 타입:}
-\begin{table}[htbp]
-	\centering
-	\caption{그래프 엣지 타입 정의}
-	\label{tab:edge_types}
-	\begin{tabular}{@{}lll@{}}
-		\toprule
-		\textbf{타입}               & \textbf{의미}         & \textbf{참조}              \\
-		\midrule
-		\texttt{recommended\_for} & 작물 $\rightarrow$ 실천 & AgriKG~\cite{ref21}      \\
-		\texttt{associated\_with} & 병해 $\rightarrow$ 실천 & CropDP-KG~\cite{ref12}   \\
-		\texttt{mentions}         & 실천 $\rightarrow$ 개념 & 농업 온톨로지~\cite{ref10}     \\
-		\texttt{causes}           & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
-		\texttt{solved\_by}       & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+
+\input{tables/implementation/edge-types}
 
 \subsection{엣지 배포 사양}
 
-\begin{table}[htbp]
-	\centering
-	\caption{환경별 배포 사양 및 지원 기능}
-	\label{tab:deployment_spec}
-	\begin{tabular}{@{}lllp{3.5cm}@{}}
-		\toprule
-		\textbf{환경} & \textbf{최소 사양} & \textbf{권장 사양}     & \textbf{지원 기능} \\
-		\midrule
-		서버          & 32GB RAM, GPU  & 64GB RAM, RTX 4090 & 전체 기능          \\
-		엣지 게이트웨이    & 8GB RAM, CPU   & 16GB RAM, CPU/NPU  & RAG + Q4 LLM   \\
-		저사양 엣지      & 4GB RAM        & 8GB RAM            & 검색 전용          \\
-		IoT 노드      & 512MB RAM      & 1GB RAM            & 센서 + 규칙        \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+\input{tables/implementation/deployment-spec}
 
 \subsection{EdgeRAG와의 구현 비교}
 
-\begin{table}[htbp]
-	\centering
-	\caption{EdgeRAG vs 본 시스템 구현 비교}
-	\label{tab:edgerag_comparison}
-	\begin{tabular}{@{}lll@{}}
-		\toprule
-		\textbf{구분} & \textbf{EdgeRAG~\cite{ref24}} & \textbf{본 시스템}               \\
-		\midrule
-		최적화 초점      & 범용 메모리 최적화                    & 도메인 특화 + 엣지 배포               \\
-		인덱싱 전략      & 온라인 계층적 인덱싱                   & 오프라인 사전 인덱싱 + mmap           \\
-		검색 채널       & 단일 Dense                      & Dense + Sparse + PathRAG 3채널 \\
-		그래프 활용      & 없음                            & 인과관계 그래프                     \\
-		도메인 지식      & 범용                            & 농업 온톨로지 6개 유형                \\
-		메모리 절감      & 계층적 로딩 50\%$\downarrow$       & 양자화 75\%$\downarrow$ + mmap  \\
-		오프라인 지원     & 제한적                           & Sparse 검색 + 캐시 폴백            \\
-		품질 향상       & 메모리 효율 우선                     & 작물 필터링, 중복 제거                \\
-		\bottomrule
-	\end{tabular}
-\end{table}
+\input{tables/implementation/edgerag-comparison}
 
 \textbf{핵심 차별점:}
 \begin{enumerate}

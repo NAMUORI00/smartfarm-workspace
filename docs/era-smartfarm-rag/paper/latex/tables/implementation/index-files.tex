@@ -1,0 +1,16 @@
+% Table: 인덱스 파일 구조
+% Label: tab:index_files
+\begin{table}[htbp]
+	\centering
+	\caption{인덱스 파일 구조}
+	\label{tab:index_files}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{파일}                & \textbf{내용}      & \textbf{형식}      \\
+		\midrule
+		\texttt{dense.faiss}       & 문서 임베딩 벡터 인덱스    & Binary (mmap 가능) \\
+		\texttt{dense\_docs.jsonl} & 문서 텍스트 및 메타데이터   & JSON Lines       \\
+		\texttt{sparse.pkl}        & TF-IDF 키워드 빈도 행렬 & Pickle           \\
+		\bottomrule
+	\end{tabular}
+\end{table}

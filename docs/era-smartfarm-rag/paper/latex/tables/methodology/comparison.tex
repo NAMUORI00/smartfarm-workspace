@@ -1,0 +1,20 @@
+% Table: EdgeRAG vs ERA-SmartFarm-RAG 비교
+% Label: tab:comparison
+\begin{table}[htbp]
+	\centering
+	\caption{EdgeRAG vs ERA-SmartFarm-RAG 비교}
+	\label{tab:comparison}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{구분} & \textbf{EdgeRAG~\cite{ref24}} & \textbf{ERA-SmartFarm-RAG}  \\
+		\midrule
+		최적화 초점      & 범용 메모리 최적화                    & 도메인 특화 + 엣지 배포              \\
+		인덱싱 전략      & 온라인 계층적 인덱싱                   & 오프라인 사전 인덱싱 + mmap          \\
+		검색 채널       & 단일 Dense                      & Dense + Sparse + PathRAG    \\
+		그래프 활용      & 없음                            & 인과관계 그래프                    \\
+		도메인 지식      & 범용                            & 농업 온톨로지 6개 유형               \\
+		메모리 절감      & 계층적 로딩 50\%$\downarrow$       & 양자화 75\%$\downarrow$ + mmap \\
+		오프라인 지원     & 제한적                           & 폴백 체인                       \\
+		\bottomrule
+	\end{tabular}
+\end{table}

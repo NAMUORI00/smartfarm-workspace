@@ -1,0 +1,17 @@
+% Table: 타당성 위협 및 완화 조치
+% Label: tab:threats
+\begin{table}[htbp]
+	\centering
+	\caption{타당성 위협 및 완화 조치}
+	\label{tab:threats}
+	\begin{tabular}{@{}llp{5cm}@{}}
+		\toprule
+		\textbf{유형} & \textbf{위협} & \textbf{완화 조치}               \\
+		\midrule
+		Internal    & 베이스라인 구현 편향 & 동일 인프라/모델 사용, 코드 공개          \\
+		External    & 단일 도메인      & ``pilot study''로 범위 명시       \\
+		Construct   & K=4 비표준     & 근거 명시, Appendix에 K=1,5,10 제공 \\
+		Statistical & 소표본         & MDE 명시, Wilson CI 사용         \\
+		\bottomrule
+	\end{tabular}
+\end{table}

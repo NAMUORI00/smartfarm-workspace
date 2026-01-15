@@ -1,0 +1,20 @@
+% Table: Ablation Results
+% Label: tab:ablation_results
+\begin{table}[htbp]
+	\centering
+	\caption{Ablation Results (N=220)}
+	\label{tab:ablation_results}
+	\begin{tabular}{@{}lcccccccc@{}}
+		\toprule
+		\textbf{Configuration}   & \textbf{DAT} & \textbf{Onto} & \textbf{Crop} & \textbf{Dedup} & \textbf{PathRAG} & \textbf{MRR}  & \textbf{$\Delta$MRR} \\
+		\midrule
+		Base (Naive)             & -            & -             & -             & -              & -                & \TBD          & --                   \\
+		+DAT                     & \checkmark   & -             & -             & -              & -                & \TBD          & +\TBD                \\
+		+DAT+Onto                & \checkmark   & \checkmark    & -             & -              & -                & \TBD          & +\TBD                \\
+		+DAT+Onto+Crop           & \checkmark   & \checkmark    & \checkmark    & -              & -                & \TBD          & +\TBD                \\
+		+DAT+Onto+Dedup          & \checkmark   & \checkmark    & -             & \checkmark     & -                & \TBD          & +\TBD                \\
+		+DAT+Onto+PathRAG        & \checkmark   & \checkmark    & -             & -              & \checkmark       & \TBD          & +\TBD                \\
+		\textbf{Full (Proposed)} & \checkmark   & \checkmark    & \checkmark    & \checkmark     & \checkmark       & \textbf{\TBD} & \textbf{+\TBD}       \\
+		\bottomrule
+	\end{tabular}
+\end{table}
