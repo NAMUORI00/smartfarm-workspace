@@ -56,11 +56,11 @@ PathRAG~\cite{ref8}의 경로 탐색 개념을 차용한 경량 구현이다. �
 문서 인제스트 시 인과관계 그래프를 자동 구축한다.
 
 \textbf{인과관계 패턴:}
-\begin{lstlisting}[basicstyle=\small\ttfamily]
-CAUSE_PATTERNS: "원인", "이유", "때문", "~하면", "높으면", "낮으면"
-EFFECT_PATTERNS: "결과", "영향", "증상", "문제", "장애", "저하"
-SOLUTION_PATTERNS: "해결", "대응", "방법", "조치", "관리", "예방"
-\end{lstlisting}
+\begin{itemize}
+	\item \texttt{CAUSE\_PATTERNS}: ``원인'', ``이유'', ``때문'', ``$\sim$하면'', ``높으면'', ``낮으면''
+	\item \texttt{EFFECT\_PATTERNS}: ``결과'', ``영향'', ``증상'', ``문제'', ``장애'', ``저하''
+	\item \texttt{SOLUTION\_PATTERNS}: ``해결'', ``대응'', ``방법'', ``조치'', ``관리'', ``예방''
+\end{itemize}
 
 \textbf{엣지 생성 로직:}
 \begin{enumerate}

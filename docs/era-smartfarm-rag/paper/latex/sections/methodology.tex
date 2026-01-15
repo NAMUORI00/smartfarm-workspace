@@ -124,13 +124,13 @@ Dense retrieval은 의미적 유사성 검색에 강하지만 ``EC 2.5 dS/m'' �
 	\centering
 	\caption{질의 특성에 따른 동적 가중치 규칙}
 	\label{tab:dynamic_alpha}
-	\begin{tabular}{@{}lcccp{3.5cm}@{}}
+	\begin{tabular}{@{}lcccl@{}}
 		\toprule
-		\textbf{질의 특성} & $\alpha_d$ & $\alpha_s$ & $\alpha_p$ & \textbf{설계 근거}             \\
+		\textbf{질의 특성} & $\alpha_d$ & $\alpha_s$ & $\alpha_p$ & \textbf{설계 근거}          \\
 		\midrule
-		일반 질의          & 0.5        & 0.5        & 0.0        & 의미 검색과 키워드 매칭 균형           \\
-		수치/단위 포함       & 0.3        & 0.7        & 0.0        & 수치는 정확히 일치해야 함~\cite{ref4} \\
-		병해/재배 관련       & 0.35       & 0.35       & 0.3        & 인과관계 탐색 활성화                \\
+		일반 질의          & 0.5        & 0.5        & 0.0        & 의미 검색과 키워드 매칭 균형        \\
+		수치/단위 포함       & 0.3        & 0.7        & 0.0        & 수치 정확 매칭 필요~\cite{ref4} \\
+		병해/재배 관련       & 0.35       & 0.35       & 0.3        & 인과관계 탐색 활성화             \\
 		\bottomrule
 	\end{tabular}
 \end{table}

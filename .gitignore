@@ -1,0 +1,135 @@
+# =============================================================================
+# SmartFarm Workspace .gitignore
+# =============================================================================
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# =============================================================================
+# LaTeX Build Files
+# =============================================================================
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.synctex.gz
+*.synctex(busy)
+*.pdfsync
+*.dvi
+*.ps
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+*-blx.bib
+*.idx
+*.ilg
+*.ind
+*.ist
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.acn
+*.acr
+*.alg
+*.nlo
+*.nls
+*.bak*
+indent.log
+
+# LaTeX PDF output (tracked separately or generated)
+docs/**/*.pdf
+
+# =============================================================================
+# IDE / Editor
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# Project Specific
+# =============================================================================
+# Model files (large binaries)
+*.gguf
+*.bin
+*.safetensors
+
+# FAISS indices
+*.faiss
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Logs
+logs/
+*.log
+
+# Data directories (if local)
+data/
+datasets/
+
+# Secrets
+.env.local
+.env.*.local
+credentials.json
+secrets.yaml
