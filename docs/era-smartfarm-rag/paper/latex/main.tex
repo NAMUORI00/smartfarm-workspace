@@ -7,7 +7,10 @@
 % ============================================================================
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{kotex}  % Korean language support
+\usepackage{silence}  % Suppress specific warnings
+\WarningFilter{latexfont}{Font shape}  % Suppress font shape warnings
+\WarningFilter{latexfont}{Some font}   % Suppress "Some font shapes" warning
+\usepackage[hangul]{kotex}  % Korean language support with hangul option
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{graphicx}
@@ -17,7 +20,7 @@
 \usepackage{multirow}
 \usepackage{hyperref}
 \usepackage{cleveref}
-\usepackage{subcaption}
+\usepackage[caption=false]{subfig}  % Use subfig instead of subcaption for IEEEtran
 \usepackage{url}
 
 % ============================================================================
