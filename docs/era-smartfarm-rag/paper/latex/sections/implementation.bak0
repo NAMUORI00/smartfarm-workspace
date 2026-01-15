@@ -1,0 +1,197 @@
+% Section 4: Implementation
+% Converted from: 04_implementation.md
+
+\section{시스템 구현 (Implementation)}
+\label{sec:implementation}
+
+\subsection{기술 스택}
+
+\begin{table}[htbp]
+\centering
+\caption{서버 및 엣지 환경별 기술 스택}
+\label{tab:tech_stack}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{구성요소} & \textbf{서버 환경} & \textbf{엣지 환경} & \textbf{참조} \\
+\midrule
+Dense Retrieval & FAISS + Qwen3-Embedding-0.6B & FAISS + MiniLM-L6 & \cite{ref25,ref26} \\
+Sparse Retrieval & TF-IDF (scikit-learn) & TF-IDF (동일) & - \\
+지식 그래프 & 커스텀 그래프 (JSON) & 서브셋 그래프 & - \\
+LLM & llama.cpp (FP16/INT8) & llama.cpp (Q4\_K\_M) & \cite{ref23} \\
+API & FastAPI + Docker & FastAPI (경량) & - \\
+오프라인 폴백 & - & 캐시 + 규칙 기반 & \cite{ref24,ref29} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{핵심 모듈 구현}
+
+\subsubsection{HybridDATRetriever}
+
+3채널 검색 융합과 후처리를 담당하는 핵심 리트리버이다.
+
+\textbf{주요 파라미터:}
+\begin{itemize}
+    \item \texttt{DEDUP\_THRESHOLD}: 0.85 (시맨틱 중복 판단 임계값)
+    \item \texttt{CROP\_MATCH\_BONUS}: 0.5 (작물 일치 시 스코어 보너스)
+    \item \texttt{CROP\_MISMATCH\_PENALTY}: 0.85 (작물 불일치 시 패널티 계수)
+\end{itemize}
+
+\textbf{동적 가중치 계산 (\texttt{dynamic\_alphas}):}
+온톨로지 매칭 결과와 수치/단위 패턴을 분석하여 3채널 가중치 반환. LLM 호출 없이 규칙 기반으로 동작하여 엣지 환경 최적화.
+
+\subsubsection{PathRAGRetriever (PathRAG-lite)}
+
+PathRAG~\cite{ref8}의 경로 탐색 개념을 차용한 경량 구현이다. 원본 PathRAG의 relational path pruning 대신 BFS(Breadth-First Search) 기반 단순화된 탐색을 수행한다.
+
+\textbf{탐색 전략:}
+\begin{itemize}
+    \item 시작점: 쿼리에서 매칭된 온톨로지 개념 노드 (예: ``와사비 고수온'' $\rightarrow$ crop:와사비, env:고수온)
+    \item 최대 깊이: 2-hop (기본값)
+    \item 인과관계 엣지(\texttt{causes}, \texttt{solved\_by}) 우선 탐색
+\end{itemize}
+
+\subsubsection{GraphBuilder}
+
+문서 인제스트 시 인과관계 그래프를 자동 구축한다.
+
+\textbf{인과관계 패턴:}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+CAUSE_PATTERNS: "원인", "이유", "때문", "~하면", "높으면", "낮으면"
+EFFECT_PATTERNS: "결과", "영향", "증상", "문제", "장애", "저하"
+SOLUTION_PATTERNS: "해결", "대응", "방법", "조치", "관리", "예방"
+\end{lstlisting}
+
+\textbf{엣지 생성 로직:}
+\begin{enumerate}
+    \item 각 문서의 인과관계 역할 탐지 (cause/effect/solution)
+    \item 공통 키워드(작물, 환경요소, 병해, 상태) 추출
+    \item 키워드 교집합이 존재하는 문서 쌍에 엣지 생성
+\end{enumerate}
+
+\subsubsection{EmbeddingRetriever}
+
+FAISS(Facebook AI Similarity Search) 기반 Dense 검색을 담당한다.
+
+\textbf{특징:}
+\begin{itemize}
+    \item Lazy loading: 시작 시가 아닌 첫 쿼리 시점에 모델 로드 $\rightarrow$ 초기 메모리 절약
+    \item L2 정규화된 임베딩으로 코사인 유사도 검색
+    \item mmap 지원으로 대용량 인덱스도 저메모리에서 사용 가능
+\end{itemize}
+
+\subsection{메모리 적응형 리랭킹}
+
+런타임 가용 메모리에 따라 리랭커를 동적으로 선택한다:
+
+\begin{table}[htbp]
+\centering
+\caption{메모리 적응형 리랭킹 설정}
+\label{tab:reranking_impl}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{가용 RAM} & \textbf{리랭커} & \textbf{설명} \\
+\midrule
+$<$ 0.8GB & none & 리랭킹 비활성화 \\
+0.8GB $\sim$ 1.5GB & LLM-lite & llama.cpp 기반 경량 리랭킹 \\
+$\geq$ 1.5GB & BGE & BGE-reranker-v2-m3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{설정 파라미터:}
+\begin{itemize}
+    \item \texttt{AUTO\_RERANK\_MIN\_RAM\_GB}: 0.8
+    \item \texttt{AUTO\_BGE\_MIN\_RAM\_GB}: 1.5
+    \item \texttt{AUTO\_BGE\_MIN\_VRAM\_GB}: 1.5 (GPU 사용 시)
+\end{itemize}
+
+\subsection{인덱스 영속화}
+
+오프라인 환경 지원을 위해 인덱스를 파일로 저장/로드한다:
+
+\begin{table}[htbp]
+\centering
+\caption{인덱스 파일 구조}
+\label{tab:index_files}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{파일} & \textbf{내용} & \textbf{형식} \\
+\midrule
+\texttt{dense.faiss} & 문서 임베딩 벡터 인덱스 & Binary (mmap 가능) \\
+\texttt{dense\_docs.jsonl} & 문서 텍스트 및 메타데이터 & JSON Lines \\
+\texttt{sparse.pkl} & TF-IDF 키워드 빈도 행렬 & Pickle \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{그래프 스키마}
+
+CropDP-KG~\cite{ref12}와 AgriKG~\cite{ref21}의 스키마 설계를 참조하여 구성하였다.
+
+\textbf{노드 타입}: practice(문서), crop, env, disease, nutrient, stage
+
+\textbf{엣지 타입:}
+\begin{table}[htbp]
+\centering
+\caption{그래프 엣지 타입 정의}
+\label{tab:edge_types}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{타입} & \textbf{의미} & \textbf{참조} \\
+\midrule
+\texttt{recommended\_for} & 작물 $\rightarrow$ 실천 & AgriKG~\cite{ref21} \\
+\texttt{associated\_with} & 병해 $\rightarrow$ 실천 & CropDP-KG~\cite{ref12} \\
+\texttt{mentions} & 실천 $\rightarrow$ 개념 & 농업 온톨로지~\cite{ref10} \\
+\texttt{causes} & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
+\texttt{solved\_by} & 실천 $\rightarrow$ 실천 & 인과 추출~\cite{ref14,ref15} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{엣지 배포 사양}
+
+\begin{table}[htbp]
+\centering
+\caption{환경별 배포 사양 및 지원 기능}
+\label{tab:deployment_spec}
+\begin{tabular}{@{}lllp{3.5cm}@{}}
+\toprule
+\textbf{환경} & \textbf{최소 사양} & \textbf{권장 사양} & \textbf{지원 기능} \\
+\midrule
+서버 & 32GB RAM, GPU & 64GB RAM, RTX 4090 & 전체 기능 \\
+엣지 게이트웨이 & 8GB RAM, CPU & 16GB RAM, CPU/NPU & RAG + Q4 LLM \\
+저사양 엣지 & 4GB RAM & 8GB RAM & 검색 전용 \\
+IoT 노드 & 512MB RAM & 1GB RAM & 센서 + 규칙 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{EdgeRAG와의 구현 비교}
+
+\begin{table}[htbp]
+\centering
+\caption{EdgeRAG vs 본 시스템 구현 비교}
+\label{tab:edgerag_comparison}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{구분} & \textbf{EdgeRAG~\cite{ref24}} & \textbf{본 시스템} \\
+\midrule
+최적화 초점 & 범용 메모리 최적화 & 도메인 특화 + 엣지 배포 \\
+인덱싱 전략 & 온라인 계층적 인덱싱 & 오프라인 사전 인덱싱 + mmap \\
+검색 채널 & 단일 Dense & Dense + Sparse + PathRAG 3채널 \\
+그래프 활용 & 없음 & 인과관계 그래프 \\
+도메인 지식 & 범용 & 농업 온톨로지 6개 유형 \\
+메모리 절감 & 계층적 로딩 50\%$\downarrow$ & 양자화 75\%$\downarrow$ + mmap \\
+오프라인 지원 & 제한적 & Sparse 검색 + 캐시 폴백 \\
+품질 향상 & 메모리 효율 우선 & 작물 필터링, 중복 제거 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{핵심 차별점:}
+\begin{enumerate}
+    \item \textbf{도메인 특화}: EdgeRAG가 범용 메모리 최적화에 집중하는 반면, 본 시스템은 농업 온톨로지와 인과관계 그래프를 활용하여 검색 품질 향상
+    \item \textbf{멀티 채널}: 수치/단위 정보(EC, pH)의 정확한 매칭을 위한 Sparse 채널 유지
+    \item \textbf{메모리 적응형}: 런타임 가용 메모리에 따른 동적 리랭커 선택
+\end{enumerate}

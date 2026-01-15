@@ -1,0 +1,303 @@
+% Section 3: Methodology
+% Converted from: 03_methodology.md
+
+\section{제안 방법론 (Proposed Methodology)}
+\label{sec:methodology}
+
+\subsection{시스템 아키텍처 개요}
+
+본 시스템은 스마트팜 도메인에 특화된 온디바이스 하이브리드 RAG로, 6계층 스택 아키텍처로 구성된다.
+
+\subsubsection{리소스 제약 및 설계 목표}
+
+엣지 환경의 리소스 제약을 명확히 정의하고, 이를 기반으로 각 컴포넌트를 설계하였다.
+
+\begin{table}[htbp]
+	\centering
+	\caption{엣지 환경 리소스 제약 및 설계 목표}
+	\label{tab:resource_constraints}
+	\begin{tabular}{@{}lllp{4cm}@{}}
+		\toprule
+		\textbf{리소스 항목} & \textbf{최소 사양} & \textbf{권장 사양} & \textbf{설계 근거}      \\
+		\midrule
+		RAM             & 8GB            & 16GB           & Jetson Orin Nano 타겟 \\
+		저장공간            & 10GB           & 20GB           & GGUF 모델 + FAISS 인덱스 \\
+		목표 지연           & p95 < 500ms    & p95 < 300ms    & 실시간 현장 응답           \\
+		LLM 메모리         & $\sim$2.5GB    & $\sim$4GB      & Q4\_K\_M 양자화 기준     \\
+		처리량             & 3 QPS          & 8 QPS          & CPU 단독 환경           \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsubsection{6계층 아키텍처}
+
+% [Figure 1 placeholder - 6-layer architecture diagram]
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 1: 6-Layer Stack Architecture]} \\[1em]
+			L5: Application \& Policy (Streamlit UI, FastAPI REST, Offline Fallback) \\
+			L4: Generation \& Grounding (Prompt Template, TemplateResponder) \\
+			L3: Context Shaping (Crop Filter, Semantic Dedup, Reranking) \\
+			L2: Retrieval Core (Dense/Sparse/PathRAG 3-channel) \\
+			L1: On-device Knowledge Store (FAISS, Causal Graph, Ontology) \\
+			L0: Device \& Runtime (llama.cpp, Embedding, FAISS mmap)
+		}}
+	\caption{제안 시스템의 6계층 스택 아키텍처}
+	\label{fig:architecture}
+\end{figure}
+
+\textbf{계층별 핵심 역할}:
+
+\begin{table}[htbp]
+	\centering
+	\caption{계층별 역할 및 핵심 컴포넌트}
+	\label{tab:layers}
+	\begin{tabular}{@{}clp{5cm}@{}}
+		\toprule
+		\textbf{계층} & \textbf{역할}     & \textbf{핵심 컴포넌트}          \\
+		\midrule
+		L5          & 사용자 인터페이스 및 정책  & FastAPI, Streamlit, 폴백 정책 \\
+		L4          & 응답 생성 및 그라운딩    & 프롬프트 템플릿, 템플릿 응답기         \\
+		L3          & 컨텍스트 압축 (논문 핵심) & 작물 필터, 중복 제거, 리랭킹         \\
+		L2          & 3채널 하이브리드 검색    & Dense, Sparse, PathRAG 융합 \\
+		L1          & 온디바이스 지식 저장소    & FAISS 인덱스, 인과관계 그래프, 온톨로지 \\
+		L0          & 디바이스 런타임        & llama.cpp, 임베딩 모델, FAISS  \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{스마트팜 온톨로지}
+
+\subsubsection{설계 배경}
+
+온톨로지 설계는 Stanford 온톨로지 구축 방법론~\cite{ref13}과 기존 농업 온톨로지 연구~\cite{ref9,ref10,ref11}를 참조하여 스마트팜 도메인에 적합한 6개 개념 유형을 정의하였다. CropDP-KG~\cite{ref12}의 엔티티 구조와 AgriKG~\cite{ref21}의 농업 엔티티 분류를 참고하여 한국 스마트팜 환경에 맞게 구성하였다.
+
+\subsubsection{개념 유형 정의}
+
+\begin{table}[htbp]
+	\centering
+	\caption{스마트팜 도메인 온톨로지 개념 유형}
+	\label{tab:ontology}
+	\begin{tabular}{@{}llll@{}}
+		\toprule
+		\textbf{유형} & \textbf{설명} & \textbf{예시}            & \textbf{근거}                  \\
+		\midrule
+		crop        & 재배 작물       & 와사비, 토마토, 딸기           & CropDP-KG~\cite{ref12}       \\
+		env         & 환경 요소       & 온도, 습도, EC, pH, CO$_2$ & IoT 센서 표준~\cite{ref11}       \\
+		nutrient    & 영양소         & 양액, 비료, 관수             & 농업 지식 베이스~\cite{ref9}        \\
+		disease     & 병해충         & 흰가루병, 뿌리썩음병, 연부병       & CropDP-KG~\cite{ref12,ref13} \\
+		stage       & 생육 단계       & 육묘, 정식, 생육, 수확         & 작물 생육 모델~\cite{ref17}        \\
+		practice    & 재배 실천       & 차광, 환기, 난방, 살균         & 농업 실천 온톨로지~\cite{ref9,ref10} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+각 개념은 동의어/유의어 목록(alias)을 포함한다. 예를 들어 ``와사비''의 alias에는 ``산와사비'', ``본와사비''가 포함되어 사용자가 어떤 표현을 쓰더라도 동일 개념으로 인식한다.
+
+\subsection{3채널 하이브리드 검색 (HybridDAT)}
+
+\subsubsection{설계 근거}
+
+Dense retrieval은 의미적 유사성 검색에 강하지만 ``EC 2.5 dS/m'' 같은 수치 정보 매칭에 취약하다. Sparse retrieval은 정확한 키워드 매칭에 강하지만 의미적 유사성을 놓칠 수 있다~\cite{ref5}. 본 시스템은 Dense-Sparse-PathRAG 3채널 융합과 질의 특성에 따른 동적 가중치 조정(Dynamic Alpha Tuning)을 적용한다.
+
+\subsubsection{HybridDATRetriever 플로우}
+
+% [Figure 3 placeholder - HybridDAT flow diagram]
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 2: HybridDAT Retrieval Flow]} \\[1em]
+			1. Query $\rightarrow$ Ontology Matching \\
+			2. Dynamic Alpha Calculation (수치/병해 분석) \\
+			3. 3-Channel Parallel Search (Dense/Sparse/PathRAG) \\
+			4. Score Fusion (Min-Max Normalization + Weighted Sum) \\
+			5. Top-k $\times$ 2 Candidates
+		}}
+	\caption{HybridDATRetriever 검색 플로우}
+	\label{fig:hybriddat}
+\end{figure}
+
+\subsubsection{동적 가중치 규칙 (Dynamic Alpha)}
+
+질의 내용을 분석하여 가중치를 자동 결정한다:
+
+\begin{table}[htbp]
+	\centering
+	\caption{질의 특성에 따른 동적 가중치 규칙}
+	\label{tab:dynamic_alpha}
+	\begin{tabular}{@{}lcccp{3.5cm}@{}}
+		\toprule
+		\textbf{질의 특성} & $\alpha_d$ & $\alpha_s$ & $\alpha_p$ & \textbf{설계 근거}             \\
+		\midrule
+		일반 질의          & 0.5        & 0.5        & 0.0        & 의미 검색과 키워드 매칭 균형           \\
+		수치/단위 포함       & 0.3        & 0.7        & 0.0        & 수치는 정확히 일치해야 함~\cite{ref4} \\
+		병해/재배 관련       & 0.35       & 0.35       & 0.3        & 인과관계 탐색 활성화                \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{인과관계 그래프 (PathRAG-lite)}
+
+\subsubsection{설계 배경}
+
+농업 도메인에서 ``고수온 $\rightarrow$ 연부병 발생 $\rightarrow$ 수온 관리'' 같은 인과 체인이 핵심 정보 구조를 형성한다~\cite{ref17}. GraphRAG~\cite{ref7}는 LLM으로 개체와 관계를 추출하므로 구축 비용이 높다(문서 1000개당 GPT-4 \$100+). 본 시스템은 규칙 기반 패턴 매칭으로 인과관계 그래프를 구축하여 비용을 \$0으로 절감한다.
+
+\subsubsection{인과관계 역할 분류}
+
+텍스트 패턴 매칭으로 문서의 역할을 분류한다:
+
+\begin{table}[htbp]
+	\centering
+	\caption{인과관계 역할 분류 패턴}
+	\label{tab:causal_patterns}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{역할} & \textbf{판별 패턴}               & \textbf{예시 문장}                     \\
+		\midrule
+		Cause       & ``원인'', ``때문'', ``$\sim$하면'' & ``고온 환경에서는 화분 활력이 저하된다''           \\
+		Effect      & ``결과'', ``증상'', ``문제''       & ``착과율이 떨어지는 문제가 발생한다''             \\
+		Solution    & ``관리'', ``해야'', ``방법''       & ``야간 온도를 18$^\circ$C 이하로 관리해야 한다'' \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsubsection{PathRAG-lite BFS 탐색}
+
+PathRAG~\cite{ref8}의 경로 탐색 개념을 차용한 경량 구현이다. BFS(너비 우선 탐색) 기반 2-hop 탐색으로 원인$\rightarrow$결과$\rightarrow$해결책 문서를 수집한다.
+
+\subsubsection{그래프 스키마}
+
+CropDP-KG~\cite{ref12}와 AgriKG~\cite{ref21}의 스키마 설계를 참조하여 구성하였다.
+
+\textbf{노드 타입}: practice(문서), crop, env, disease, nutrient, stage
+
+\textbf{엣지 타입}:
+\begin{itemize}
+	\item \texttt{recommended\_for}: 작물 $\rightarrow$ 실천 (AgriKG~\cite{ref21})
+	\item \texttt{associated\_with}: 병해 $\rightarrow$ 실천 (CropDP-KG~\cite{ref12})
+	\item \texttt{mentions}: 실천 $\rightarrow$ 개념 (농업 온톨로지~\cite{ref10})
+	\item \texttt{causes}: 실천 $\rightarrow$ 실천 (인과 추출~\cite{ref14,ref15})
+	\item \texttt{solved\_by}: 실천 $\rightarrow$ 실천 (인과 추출~\cite{ref14,ref15})
+\end{itemize}
+
+\subsection{Context Shaping (컨텍스트 압축)}
+
+엣지 LLM은 토큰이 곧 지연/전력 비용이므로, 검색 결과를 그대로 전달하지 않고 압축/필터링하는 것이 핵심이다.
+
+\subsubsection{Context Shaping 파이프라인}
+
+% [Figure 5 placeholder - Context Shaping pipeline]
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 3: Context Shaping Pipeline]} \\[1em]
+			Input (16 docs) $\rightarrow$ Crop Filter ($\sim$12 docs) \\
+			$\rightarrow$ Semantic Dedup ($\sim$8 docs) $\rightarrow$ Reranking $\rightarrow$ Output (4 docs)
+		}}
+	\caption{Context Shaping 파이프라인}
+	\label{fig:context_shaping}
+\end{figure}
+
+\subsubsection{작물 필터링 (Crop-aware Filtering)}
+
+농업 지식 그래프 연구~\cite{ref4,ref12}에서 작물별 맥락 의존성이 강조되었다. 질의의 작물과 문서의 작물 메타데이터를 비교하여 스코어를 조정한다.
+
+\begin{table}[htbp]
+	\centering
+	\caption{작물 필터링 스코어 조정}
+	\label{tab:crop_filter}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{조건} & \textbf{스코어 조정} & \textbf{효과}  \\
+		\midrule
+		작물 일치       & +0.5            & 관련 문서 우선     \\
+		작물 불일치      & $\times$0.15    & 무관한 작물 정보 억제 \\
+		작물 정보 없음    & 유지              & 일반 정보 보존     \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsubsection{시맨틱 중복 제거 (Semantic Deduplication)}
+
+MMR~\cite{ref18}과 VRSD~\cite{ref19}를 참조하여 검색 결과의 다양성을 확보한다. 두 문서의 임베딩 벡터 간 코사인 유사도가 임계값($\theta$=0.85) 이상인 문서 쌍에서 후순위 문서를 제거한다.
+
+\subsubsection{메모리 적응형 리랭킹}
+
+런타임 가용 메모리에 따라 리랭커를 동적으로 선택한다:
+
+\begin{table}[htbp]
+	\centering
+	\caption{메모리 적응형 리랭킹 전략}
+	\label{tab:reranking}
+	\begin{tabular}{@{}llll@{}}
+		\toprule
+		\textbf{가용 RAM}    & \textbf{리랭커} & \textbf{추가 메모리} & \textbf{설명}        \\
+		\midrule
+		$<$ 0.8GB          & none         & 0MB             & 리랭킹 비활성화           \\
+		0.8GB $\sim$ 1.5GB & LLM-lite     & $\sim$0MB       & llama.cpp 재사용      \\
+		$\geq$ 1.5GB       & BGE          & $\sim$500MB     & BGE-reranker-v2-m3 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{엣지 배포 최적화}
+
+\subsubsection{메모리 계층 구조 (RAM vs Flash)}
+
+엣지 환경에서 ``벡터 인덱스가 RAM에 다 못 올라간다''는 병목을 해결하기 위해 계층적 메모리 구조를 설계하였다.
+
+\begin{itemize}
+	\item \textbf{RAM (Hot Data)}: Query Cache (LRU 128), Embedding Cache (LRU 256), FAISS mmap Active Pages, LLM Weights ($\sim$2.5GB)
+	\item \textbf{Flash/SSD (Cold Data)}: dense.faiss (mmap), sparse.pkl, responses.jsonl, graph.json
+\end{itemize}
+
+\subsubsection{LLM 양자화 전략}
+
+llama.cpp의 GGUF 포맷~\cite{ref23}을 활용하여 Q4\_K\_M 양자화를 기본으로 적용한다.
+
+\begin{table}[htbp]
+	\centering
+	\caption{LLM 양자화 수준별 비교 (4B 모델 기준)}
+	\label{tab:quantization}
+	\begin{tabular}{@{}llll@{}}
+		\toprule
+		\textbf{양자화 수준}   & \textbf{메모리} & \textbf{품질 손실} & \textbf{적용 환경}      \\
+		\midrule
+		FP16 (원본)         & $\sim$8GB    & 없음             & 서버 환경 (GPU 필수)      \\
+		INT8              & $\sim$4GB    & 최소             & 고사양 엣지 (8GB RAM)    \\
+		\textbf{Q4\_K\_M} & $\sim$2.5GB  & 낮음             & \textbf{일반 엣지 (권장)} \\
+		Q2\_K             & $\sim$1.5GB  & 중간             & 극저사양 환경             \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Q4\_K\_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양자화하여 품질 대비 메모리 효율의 최적점으로 평가된다.
+
+\subsubsection{오프라인 폴백 모드}
+
+네트워크 단절 또는 LLM 장애 시 다음과 같은 폴백 전략을 적용한다:
+
+\begin{enumerate}
+	\item \textbf{Similar Cache}: ResponseCache.get\_similar() - 임베딩 유사도 $\geq$ 0.9인 이전 유사 질의 응답 재활용
+	\item \textbf{Template Response}: TemplateResponder.generate() - 온톨로지 매칭 기반 정형화된 응답 생성
+	\item \textbf{Search Only}: LLM 없이 검색 결과만 반환
+\end{enumerate}
+
+\subsection{관련 연구와의 비교}
+
+\begin{table}[htbp]
+	\centering
+	\caption{EdgeRAG vs ERA-SmartFarm-RAG 비교}
+	\label{tab:comparison}
+	\begin{tabular}{@{}lll@{}}
+		\toprule
+		\textbf{구분} & \textbf{EdgeRAG~\cite{ref24}} & \textbf{ERA-SmartFarm-RAG}  \\
+		\midrule
+		최적화 초점      & 범용 메모리 최적화                    & 도메인 특화 + 엣지 배포              \\
+		인덱싱 전략      & 온라인 계층적 인덱싱                   & 오프라인 사전 인덱싱 + mmap          \\
+		검색 채널       & 단일 Dense                      & Dense + Sparse + PathRAG    \\
+		그래프 활용      & 없음                            & 인과관계 그래프                    \\
+		도메인 지식      & 범용                            & 농업 온톨로지 6개 유형               \\
+		메모리 절감      & 계층적 로딩 50\%$\downarrow$       & 양자화 75\%$\downarrow$ + mmap \\
+		오프라인 지원     & 제한적                           & 폴백 체인                       \\
+		\bottomrule
+	\end{tabular}
+\end{table}
