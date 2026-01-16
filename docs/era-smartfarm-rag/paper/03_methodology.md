@@ -1,10 +1,52 @@
 # 3. 제안 방법론 (Proposed Methodology)
 
-## 3.1 시스템 아키텍처 개요
+## 3.1 전체 시스템 개요 및 처리 흐름
+
+본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. 시스템은 **데이터 수집 및 전처리 → 지식 저장소 구축 → 하이브리드 검색 → 컨텍스트 압축 → 응답 생성 → 검증**의 6단계 파이프라인으로 구성되며, 각 단계는 엣지 환경의 메모리/연산 제약을 고려하여 설계되었다.
+
+### 3.1.1 End-to-End 처리 흐름 (Figure 1)
+
+```mermaid
+flowchart LR
+    subgraph Phase1["<b>Phase 1: 데이터 준비</b><br/>(오프라인, 1회)"]
+        direction TB
+        D1["<b>데이터 수집</b><br/>PDF/이미지/텍스트<br/>농업 매뉴얼, 가이드"]
+        D2["<b>전처리</b><br/>OCR, 청킹<br/>메타데이터 추출"]
+        D3["<b>지식 저장소 구축</b><br/>Dense/Sparse 인덱스<br/>인과관계 그래프<br/>온톨로지 매핑"]
+        D1 --> D2 --> D3
+    end
+    
+    subgraph Phase2["<b>Phase 2: 실시간 추론</b><br/>(온라인, 매 질의)"]
+        direction TB
+        Q1["<b>질의 분석</b><br/>온톨로지 매칭<br/>Dynamic Alpha 계산"]
+        Q2["<b>3채널 검색</b><br/>Dense + Sparse<br/>+ PathRAG"]
+        Q3["<b>컨텍스트 압축</b><br/>작물 필터링<br/>중복 제거, 리랭킹"]
+        Q4["<b>응답 생성</b><br/>llama.cpp LLM<br/>프롬프트 구성"]
+        Q5["<b>검증 & 출력</b><br/>근거 추적<br/>신뢰도 표시"]
+        Q1 --> Q2 --> Q3 --> Q4 --> Q5
+    end
+    
+    Phase1 -->|"인덱스 파일<br/>mmap 로드"| Phase2
+    
+    subgraph EdgeConstraint["<b>엣지 제약</b>"]
+        E1["8GB RAM"]
+        E2["Q4_K_M 양자화"]
+        E3["p95 < 300ms"]
+    end
+```
+
+**핵심 설계 원칙:**
+
+1. **오프라인 사전 구축**: 인덱싱/그래프 구축은 1회 오프라인으로 수행하여 런타임 부하 최소화
+2. **메모리 효율**: mmap 기반 lazy loading으로 전체 인덱스를 RAM에 올리지 않음
+3. **도메인 특화**: 농업 온톨로지와 인과관계 그래프로 범용 RAG 대비 검색 품질 향상
+4. **검증 내장**: 근거 문서 추적과 신뢰도 표시로 환각 위험 완화
+
+### 3.1.2 시스템 아키텍처 (6계층 스택)
 
 본 시스템은 스마트팜 도메인에 특화된 온디바이스 하이브리드 RAG로, 6계층 스택 아키텍처로 구성된다.
 
-### 3.1.1 리소스 제약 및 설계 목표
+### 3.1.3 리소스 제약 및 설계 목표
 
 엣지 환경의 리소스 제약을 명확히 정의하고, 이를 기반으로 각 컴포넌트를 설계하였다.
 
@@ -16,7 +58,7 @@
 | **LLM 메모리** | ~2.5GB | ~4GB | Q4_K_M 양자화 기준 |
 | **처리량** | 3 QPS | 8 QPS | CPU 단독 환경 |
 
-### 3.1.2 6계층 아키텍처 (Figure 1)
+### 3.1.4 6계층 아키텍처 (Figure 2)
 
 ```mermaid
 flowchart TB
@@ -82,13 +124,130 @@ flowchart TB
 
 ---
 
-## 3.2 스마트팜 온톨로지
+## 3.2 데이터 수집 및 전처리 파이프라인
 
-### 3.2.1 설계 배경
+### 3.2.1 데이터 수집
+
+본 연구의 지식 베이스는 다음 세 가지 유형의 농업 문서로 구성된다.
+
+| 데이터 유형 | 출처 | 형식 | 수량 |
+|------------|------|------|------|
+| **재배 매뉴얼** | 농촌진흥청, 도농업기술원 | PDF, 이미지 | ~50개 |
+| **기술 가이드** | 스마트팜 코리아, 농업기술실용화재단 | 웹 문서, PDF | ~30개 |
+| **작업 기록** | 현장 농가 메모, Q&A 게시판 | 텍스트, 이미지 | ~20개 |
+
+**수집 기준:**
+- 와사비 재배에 직접 관련된 문서 우선
+- 환경 관리(온도, 습도, EC, pH)에 대한 수치 정보 포함 문서
+- 병해충 진단 및 해결책이 명시된 문서
+
+### 3.2.2 전처리 파이프라인 (Figure 3)
+
+```mermaid
+flowchart TD
+    subgraph Input["<b>입력 문서</b>"]
+        I1["PDF 문서"]
+        I2["이미지 (스캔)"]
+        I3["텍스트 파일"]
+    end
+    
+    subgraph OCR["<b>OCR 처리</b><br/>EasyOCR"]
+        O1["이미지 → 텍스트 변환"]
+        O2["테이블 구조 인식"]
+        O3["수치/단위 정규화"]
+    end
+    
+    subgraph Chunking["<b>청킹</b><br/>Semantic Chunking"]
+        C1["섹션 기반 분할<br/>(제목, 소제목)"]
+        C2["의미 단위 병합<br/>(200-500 토큰)"]
+        C3["오버랩 적용<br/>(50 토큰)"]
+    end
+    
+    subgraph Metadata["<b>메타데이터 추출</b>"]
+        M1["<b>작물 태깅</b><br/>와사비, 토마토, ..."]
+        M2["<b>카테고리 분류</b><br/>재배기술, 환경관리,<br/>병해충, 영양관리"]
+        M3["<b>인과관계 역할</b><br/>cause/effect/solution"]
+        M4["<b>수치 정보</b><br/>온도 범위, EC 값"]
+    end
+    
+    subgraph Output["<b>출력</b>"]
+        OUT["청크 + 메타데이터<br/>→ 인덱싱 단계로"]
+    end
+    
+    I1 --> OCR
+    I2 --> OCR
+    I3 --> Chunking
+    OCR --> Chunking
+    Chunking --> Metadata
+    Metadata --> Output
+```
+
+### 3.2.3 OCR 및 텍스트 정규화
+
+이미지 기반 문서(스캔 PDF, 현장 사진)는 **EasyOCR**을 사용하여 텍스트로 변환한다.
+
+**정규화 규칙:**
+- 온도: "25도", "25°C", "섭씨 25도" → `25℃`
+- EC: "2.5 dS/m", "EC 2.5", "전기전도도 2.5" → `EC 2.5 dS/m`
+- pH: "pH6.5", "산도 6.5" → `pH 6.5`
+
+```python
+# 수치 정규화 예시
+NORMALIZATION_PATTERNS = {
+    r'(\d+\.?\d*)\s*(도|°C|℃|섭씨)': r'\1℃',
+    r'(EC|전기전도도)\s*(\d+\.?\d*)': r'EC \2 dS/m',
+    r'(pH|산도)\s*(\d+\.?\d*)': r'pH \2',
+}
+```
+
+### 3.2.4 시맨틱 청킹 전략
+
+단순 길이 기반 분할 대신, 문서의 **의미 구조**를 보존하는 청킹을 적용한다.
+
+| 전략 | 설명 | 토큰 범위 |
+|------|------|----------|
+| **섹션 기반** | 제목/소제목으로 1차 분할 | 가변 |
+| **의미 병합** | 짧은 섹션은 연관 섹션과 병합 | 200-500 |
+| **오버랩** | 문맥 연속성을 위한 중복 구간 | 50 |
+
+**청킹 파라미터:**
+- `CHUNK_MIN_TOKENS`: 200 (너무 짧은 청크 방지)
+- `CHUNK_MAX_TOKENS`: 500 (컨텍스트 윈도우 효율)
+- `CHUNK_OVERLAP`: 50 (문맥 연속성)
+
+### 3.2.5 메타데이터 자동 추출
+
+각 청크에 대해 다음 메타데이터를 규칙 기반으로 자동 추출한다.
+
+| 메타데이터 | 추출 방법 | 용도 |
+|-----------|----------|------|
+| **crop** | 온톨로지 매칭 (작물명 사전) | 작물 필터링 |
+| **category** | 키워드 분류기 | 도메인 분석 |
+| **causal_role** | 패턴 매칭 (원인/결과/해결 키워드) | PathRAG 그래프 |
+| **numeric_info** | 정규표현식 추출 | Sparse 검색 강화 |
+| **source** | 원본 파일명 + 페이지 | 근거 추적 |
+
+```python
+# 메타데이터 추출 예시
+def extract_metadata(chunk_text: str) -> dict:
+    return {
+        "crop": ontology_matcher.match_crop(chunk_text),
+        "category": classify_category(chunk_text),
+        "causal_role": detect_causal_role(chunk_text),
+        "numeric_info": extract_numeric_values(chunk_text),
+        "source": {"file": source_file, "page": page_num}
+    }
+```
+
+---
+
+## 3.3 스마트팜 온톨로지
+
+### 3.3.1 설계 배경
 
 온톨로지 설계는 Stanford 온톨로지 구축 방법론[13]과 기존 농업 온톨로지 연구[9,10,11]를 참조하여 스마트팜 도메인에 적합한 6개 개념 유형을 정의하였다. CropDP-KG[12]의 엔티티 구조와 AgriKG[21]의 농업 엔티티 분류를 참고하여 한국 스마트팜 환경에 맞게 구성하였다.
 
-### 3.2.2 개념 유형 정의 (Figure 2)
+### 3.3.2 개념 유형 정의 (Figure 4)
 
 ```mermaid
 flowchart TD
@@ -156,13 +315,13 @@ flowchart TD
 
 ---
 
-## 3.3 3채널 하이브리드 검색 (HybridDAT)
+## 3.4 3채널 하이브리드 검색 (HybridDAT)
 
-### 3.3.1 설계 근거
+### 3.4.1 설계 근거
 
 Dense retrieval은 의미적 유사성 검색에 강하지만 "EC 2.5 dS/m" 같은 수치 정보 매칭에 취약하다. Sparse retrieval은 정확한 키워드 매칭에 강하지만 의미적 유사성을 놓칠 수 있다[5]. 본 시스템은 Dense-Sparse-PathRAG 3채널 융합과 질의 특성에 따른 동적 가중치 조정(Dynamic Alpha Tuning)을 적용한다.
 
-### 3.3.2 HybridDATRetriever 플로우 (Figure 3)
+### 3.4.2 HybridDATRetriever 플로우 (Figure 5)
 
 ```mermaid
 flowchart TD
@@ -209,7 +368,7 @@ flowchart TD
     Fusion --> Output["Top-k × 2 후보"]
 ```
 
-### 3.3.3 동적 가중치 규칙 (Dynamic Alpha)
+### 3.4.3 동적 가중치 규칙 (Dynamic Alpha)
 
 질의 내용을 분석하여 가중치를 자동 결정한다:
 
@@ -221,13 +380,13 @@ flowchart TD
 
 ---
 
-## 3.4 인과관계 그래프 (PathRAG-lite)
+## 3.5 인과관계 그래프 (PathRAG-lite)
 
-### 3.4.1 설계 배경
+### 3.5.1 설계 배경
 
 농업 도메인에서 "고수온 → 연부병 발생 → 수온 관리" 같은 인과 체인이 핵심 정보 구조를 형성한다[17]. GraphRAG[7]는 LLM으로 개체와 관계를 추출하므로 구축 비용이 높다(문서 1000개당 GPT-4 $100+). 본 시스템은 규칙 기반 패턴 매칭으로 인과관계 그래프를 구축하여 비용을 $0으로 절감한다.
 
-### 3.4.2 인과관계 역할 분류
+### 3.5.2 인과관계 역할 분류
 
 텍스트 패턴 매칭으로 문서의 역할을 분류한다:
 
@@ -237,7 +396,7 @@ flowchart TD
 | **Effect** | "결과", "증상", "문제", "장애", "저하" | "착과율이 떨어지는 문제가 발생한다" |
 | **Solution** | "관리", "해야", "방법", "조치", "예방" | "야간 온도를 18℃ 이하로 관리해야 한다" |
 
-### 3.4.3 PathRAG-lite BFS 탐색 (Figure 4)
+### 3.5.3 PathRAG-lite BFS 탐색 (Figure 6)
 
 PathRAG[8]의 경로 탐색 개념을 차용한 경량 구현이다. BFS(너비 우선 탐색) 기반 2-hop 탐색으로 원인→결과→해결책 문서를 수집한다.
 
@@ -286,7 +445,7 @@ flowchart TD
     BFS --> Result["검색 결과:<br/>P3, P4 (solutions)"]
 ```
 
-### 3.4.4 그래프 스키마
+### 3.5.4 그래프 스키마
 
 CropDP-KG[12]와 AgriKG[21]의 스키마 설계를 참조하여 구성하였다.
 
@@ -304,11 +463,11 @@ CropDP-KG[12]와 AgriKG[21]의 스키마 설계를 참조하여 구성하였다.
 
 ---
 
-## 3.5 Context Shaping (컨텍스트 압축)
+## 3.6 Context Shaping (컨텍스트 압축)
 
 엣지 LLM은 토큰이 곧 지연/전력 비용이므로, 검색 결과를 그대로 전달하지 않고 압축/필터링하는 것이 핵심이다.
 
-### 3.5.1 Context Shaping 파이프라인 (Figure 5)
+### 3.6.1 Context Shaping 파이프라인 (Figure 7)
 
 ```mermaid
 flowchart LR
@@ -365,7 +524,7 @@ flowchart LR
     Reranking --> Output
 ```
 
-### 3.5.2 작물 필터링 (Crop-aware Filtering)
+### 3.6.2 작물 필터링 (Crop-aware Filtering)
 
 농업 지식 그래프 연구[4,12]에서 작물별 맥락 의존성이 강조되었다. 질의의 작물과 문서의 작물 메타데이터를 비교하여 스코어를 조정한다.
 
@@ -375,11 +534,11 @@ flowchart LR
 | 작물 불일치 | ×0.15 | 무관한 작물 정보 억제 |
 | 작물 정보 없음 | 유지 | 일반 정보 보존 |
 
-### 3.5.3 시맨틱 중복 제거 (Semantic Deduplication)
+### 3.6.3 시맨틱 중복 제거 (Semantic Deduplication)
 
 MMR[18]과 VRSD[19]를 참조하여 검색 결과의 다양성을 확보한다. 두 문서의 임베딩 벡터 간 코사인 유사도가 임계값(θ=0.85) 이상인 문서 쌍에서 후순위 문서를 제거한다.
 
-### 3.5.4 메모리 적응형 리랭킹
+### 3.6.4 메모리 적응형 리랭킹
 
 런타임 가용 메모리에 따라 리랭커를 동적으로 선택한다:
 
@@ -391,9 +550,9 @@ MMR[18]과 VRSD[19]를 참조하여 검색 결과의 다양성을 확보한다. 
 
 ---
 
-## 3.6 엣지 배포 최적화
+## 3.7 엣지 배포 최적화
 
-### 3.6.1 메모리 계층 구조 (RAM vs Flash)
+### 3.7.1 메모리 계층 구조 (RAM vs Flash)
 
 엣지 환경에서 "벡터 인덱스가 RAM에 다 못 올라간다"는 병목을 해결하기 위해 계층적 메모리 구조를 설계하였다.
 
@@ -431,7 +590,7 @@ flowchart TB
     RAM <-->|mmap I/O| Flash
 ```
 
-### 3.6.2 LLM 양자화 전략
+### 3.7.2 LLM 양자화 전략
 
 llama.cpp의 GGUF 포맷[23]을 활용하여 Q4_K_M 양자화를 기본으로 적용한다.
 
@@ -444,7 +603,7 @@ llama.cpp의 GGUF 포맷[23]을 활용하여 Q4_K_M 양자화를 기본으로 �
 
 Q4_K_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양자화하여 품질 대비 메모리 효율의 최적점으로 평가된다.
 
-### 3.6.3 오프라인 폴백 모드 (Figure 6)
+### 3.7.3 오프라인 폴백 모드 (Figure 8)
 
 네트워크 단절 또는 LLM 장애 시 다음과 같은 폴백 전략을 적용한다:
 
@@ -485,9 +644,114 @@ flowchart TD
 
 ---
 
-## 3.7 관련 연구와의 비교
+## 3.8 응답 검증 및 근거 추적 (Verification)
 
-### 3.7.1 EdgeRAG vs ERA-SmartFarm-RAG
+엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해 다음과 같은 검증 메커니즘을 적용한다.
+
+### 3.8.1 근거 추적 (Source Attribution)
+
+생성된 응답의 각 주장에 대해 근거 문서를 명시적으로 연결한다.
+
+```mermaid
+flowchart LR
+    subgraph Response["<b>LLM 응답</b>"]
+        R1["와사비의 적정 수온은<br/>13-17℃입니다."]
+        R2["고온 시 연부병 위험이<br/>증가합니다."]
+    end
+    
+    subgraph Sources["<b>근거 문서</b>"]
+        S1["[chunk_042]<br/>와사비재배 매뉴얼 p.15"]
+        S2["[chunk_089]<br/>병해충 관리 가이드 p.8"]
+    end
+    
+    subgraph Verification["<b>검증 출력</b>"]
+        V1["✓ 근거 있음<br/>similarity: 0.92"]
+        V2["✓ 근거 있음<br/>similarity: 0.87"]
+    end
+    
+    R1 --> S1 --> V1
+    R2 --> S2 --> V2
+```
+
+**구현 방식:**
+1. LLM 프롬프트에 검색된 문서와 함께 "근거를 명시하라"는 지시 포함
+2. 응답 생성 후, 주장-문서 간 임베딩 유사도 계산
+3. 유사도가 임계값(0.7) 미만인 주장에 대해 경고 표시
+
+### 3.8.2 환각 감지 메커니즘 (Figure 9)
+
+```mermaid
+flowchart TD
+    subgraph Input["입력"]
+        LLM_Response["LLM 생성 응답"]
+        Retrieved_Docs["검색된 근거 문서"]
+    end
+    
+    subgraph Detection["<b>환각 감지</b>"]
+        D1["<b>1. Claim Extraction</b><br/>응답에서 사실적 주장 추출"]
+        D2["<b>2. Evidence Matching</b><br/>주장-문서 유사도 계산"]
+        D3["<b>3. Consistency Check</b><br/>수치 정보 일치 확인"]
+    end
+    
+    subgraph Scoring["<b>신뢰도 산출</b>"]
+        SC1{"모든 주장<br/>근거 있음?"}
+        SC2["<b>HIGH</b><br/>✓ 신뢰 가능"]
+        SC3["<b>MEDIUM</b><br/>⚠ 일부 미확인"]
+        SC4["<b>LOW</b><br/>✗ 근거 부족"]
+    end
+    
+    subgraph Output["출력"]
+        O1["응답 + 신뢰도 표시<br/>+ 근거 문서 링크"]
+    end
+    
+    Input --> Detection
+    D1 --> D2 --> D3
+    Detection --> Scoring
+    SC1 -->|Yes| SC2
+    SC1 -->|Partial| SC3
+    SC1 -->|No| SC4
+    Scoring --> Output
+```
+
+### 3.8.3 수치 정보 검증
+
+농업 도메인에서 수치 정보의 정확성은 특히 중요하다. 다음과 같은 규칙 기반 검증을 적용한다.
+
+| 검증 항목 | 방법 | 예시 |
+|----------|------|------|
+| **범위 검증** | 도메인 지식 기반 허용 범위 | 수온 10-25℃, pH 5.5-7.5 |
+| **일관성 검증** | 근거 문서 내 수치와 비교 | 응답 "18℃" vs 문서 "18℃" ✓ |
+| **단위 검증** | 단위 변환 정확성 확인 | EC 2.5 dS/m ≠ 2500 µS/cm 표기 주의 |
+
+### 3.8.4 신뢰도 표시 및 폴백
+
+최종 응답에는 다음 정보가 함께 제공된다:
+
+```json
+{
+  "answer": "와사비의 적정 수온은 13-17℃입니다...",
+  "confidence": "HIGH",
+  "sources": [
+    {"chunk_id": "chunk_042", "title": "와사비재배 매뉴얼", "page": 15, "similarity": 0.92}
+  ],
+  "warnings": [],
+  "fallback_used": false
+}
+```
+
+**신뢰도 수준 정의:**
+
+| 수준 | 조건 | 사용자 안내 |
+|------|------|-----------|
+| **HIGH** | 모든 주장에 유사도 ≥0.8 근거 존재 | 응답 신뢰 가능 |
+| **MEDIUM** | 일부 주장만 근거 확인 (≥60%) | 추가 확인 권장 |
+| **LOW** | 근거 확인 불가 (<60%) | 전문가 상담 권장 |
+
+---
+
+## 3.9 관련 연구와의 비교
+
+### 3.9.1 EdgeRAG vs ERA-SmartFarm-RAG
 
 | 구분 | EdgeRAG[24] | ERA-SmartFarm-RAG |
 |------|-------------|-------------------|
@@ -499,7 +763,7 @@ flowchart TD
 | **메모리 절감** | 계층적 로딩 50%↓ | **양자화 75%↓ + mmap** |
 | **오프라인 지원** | 제한적 | **폴백 체인 (Cache→Template→Search)** |
 
-### 3.7.2 MobileRAG 패턴 비교
+### 3.9.2 MobileRAG 패턴 비교
 
 | 구분 | MobileRAG (EcoVector+SCR) | ERA-SmartFarm-RAG |
 |------|---------------------------|-------------------|
@@ -508,7 +772,7 @@ flowchart TD
 | **토큰 절감** | SCR (Selective Content Reduction) | **Semantic Dedup + Crop Filter** |
 | **런타임** | AI Edge / MLX | **llama.cpp GGUF** |
 
-### 3.7.3 핵심 차별점
+### 3.9.3 핵심 차별점
 
 1. **도메인 특화**: 범용 메모리 최적화 대신 농업 온톨로지와 인과관계 그래프 활용
 2. **3채널 검색**: 수치/단위 정보(EC, pH)의 정확한 매칭을 위한 Sparse 채널 유지

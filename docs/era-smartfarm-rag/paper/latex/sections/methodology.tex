@@ -1,12 +1,39 @@
 % Section 3: Methodology
 % Converted from: 03_methodology.md
+% Updated: 2026-01-15 - Added system overview, data preprocessing, verification sections
 
 \section{제안 방법론 (Proposed Methodology)}
 \label{sec:methodology}
 
-\subsection{시스템 아키텍처 개요}
+\subsection{전체 시스템 개요 및 처리 흐름}
 
-본 시스템은 스마트팜 도메인에 특화된 온디바이스 하이브리드 RAG로, 6계층 스택 아키텍처로 구성된다.
+본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. 시스템은 \textbf{데이터 수집 및 전처리 $\rightarrow$ 지식 저장소 구축 $\rightarrow$ 하이브리드 검색 $\rightarrow$ 컨텍스트 압축 $\rightarrow$ 응답 생성 $\rightarrow$ 검증}의 6단계 파이프라인으로 구성되며, 각 단계는 엣지 환경의 메모리/연산 제약을 고려하여 설계되었다.
+
+\subsubsection{End-to-End 처리 흐름}
+
+% [Figure 1 placeholder - Full Flow Architecture]
+\begin{figure*}[htbp]
+	\centering
+	\fbox{\parbox{0.95\textwidth}{\centering \textbf{[Figure 1: End-to-End Architecture Flow]} \\[1em]
+			\textbf{PHASE 1: 데이터 준비 (Offline)} \\
+			데이터 수집 (PDF/이미지/텍스트) $\rightarrow$ 전처리 (OCR, 청킹, 메타데이터) $\rightarrow$ 지식 저장소 구축 (Dense/Sparse/Graph) \\[1em]
+			$\downarrow$ \textit{mmap load} \\[1em]
+			\textbf{PHASE 2: 실시간 추론 (Online)} \\
+			질의 분석 (Ontology Matching, Dynamic Alpha) $\rightarrow$ 3채널 검색 (HybridDAT) \\
+			$\rightarrow$ 컨텍스트 압축 (Crop Filter, Dedup, Reranking) $\rightarrow$ LLM 생성 (llama.cpp Q4\_K\_M) \\
+			$\rightarrow$ 검증 (Source Attribution, Hallucination Detection) $\rightarrow$ 출력 (Answer + Confidence + Sources)
+		}}
+	\caption{제안 시스템의 End-to-End 아키텍처 플로우. 데이터 수집부터 검증까지 전체 처리 흐름을 보여준다.}
+	\label{fig:full_flow}
+\end{figure*}
+
+\textbf{핵심 설계 원칙}:
+\begin{enumerate}
+	\item \textbf{오프라인 사전 구축}: 인덱싱/그래프 구축은 1회 오프라인으로 수행하여 런타임 부하 최소화
+	\item \textbf{메모리 효율}: mmap 기반 lazy loading으로 전체 인덱스를 RAM에 올리지 않음
+	\item \textbf{도메인 특화}: 농업 온톨로지와 인과관계 그래프로 범용 RAG 대비 검색 품질 향상
+	\item \textbf{검증 내장}: 근거 문서 추적과 신뢰도 표시로 환각 위험 완화
+\end{enumerate}
 
 \subsubsection{리소스 제약 및 설계 목표}
 
@@ -16,10 +43,10 @@
 
 \subsubsection{6계층 아키텍처}
 
-% [Figure 1 placeholder - 6-layer architecture diagram]
+% [Figure 2 placeholder - 6-layer architecture diagram]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 1: 6-Layer Stack Architecture]} \\[1em]
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 2: 6-Layer Stack Architecture]} \\[1em]
 			L5: Application \& Policy (Streamlit UI, FastAPI REST, Offline Fallback) \\
 			L4: Generation \& Grounding (Prompt Template, TemplateResponder) \\
 			L3: Context Shaping (Crop Filter, Semantic Dedup, Reranking) \\
@@ -35,6 +62,40 @@
 
 \input{tables/methodology/layers}
 
+%----------------------------------------------------------------------
+\subsection{데이터 수집 및 전처리 파이프라인}
+
+\subsubsection{데이터 수집}
+
+본 연구의 지식 베이스는 세 가지 유형의 농업 문서로 구성된다: (1) 재배 매뉴얼 (농촌진흥청, 도농업기술원 PDF), (2) 기술 가이드 (스마트팜 코리아, 농업기술실용화재단 웹/PDF), (3) 작업 기록 (현장 농가 메모, Q\&A 게시판).
+
+\subsubsection{전처리 파이프라인}
+
+% [Figure 3 placeholder - Preprocessing Pipeline]
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 3: Data Preprocessing Pipeline]} \\[1em]
+			입력 (PDF/이미지/텍스트) $\rightarrow$ OCR 처리 (EasyOCR) \\
+			$\rightarrow$ 시맨틱 청킹 (200-500 토큰) $\rightarrow$ 메타데이터 추출 \\
+			(crop, category, causal\_role, numeric\_info, source)
+		}}
+	\caption{데이터 전처리 파이프라인}
+	\label{fig:preprocessing}
+\end{figure}
+
+\subsubsection{OCR 및 텍스트 정규화}
+
+이미지 기반 문서는 EasyOCR을 사용하여 텍스트로 변환한다. 정규화 규칙을 적용하여 온도(25도 $\rightarrow$ 25℃), EC(전기전도도 2.5 $\rightarrow$ EC 2.5 dS/m), pH(산도 6.5 $\rightarrow$ pH 6.5) 등 수치 표현을 통일한다.
+
+\subsubsection{시맨틱 청킹 전략}
+
+단순 길이 기반 분할 대신, 문서의 의미 구조를 보존하는 청킹을 적용한다. 섹션 기반 1차 분할 후 짧은 섹션은 연관 섹션과 병합하며, 50 토큰 오버랩으로 문맥 연속성을 확보한다. 청킹 파라미터: \texttt{CHUNK\_MIN\_TOKENS}=200, \texttt{CHUNK\_MAX\_TOKENS}=500, \texttt{CHUNK\_OVERLAP}=50.
+
+\subsubsection{메타데이터 자동 추출}
+
+각 청크에 대해 crop(작물), category(카테고리), causal\_role(인과관계 역할), numeric\_info(수치 정보), source(출처) 메타데이터를 규칙 기반으로 자동 추출한다.
+
+%----------------------------------------------------------------------
 \subsection{스마트팜 온톨로지}
 
 \subsubsection{설계 배경}
@@ -47,6 +108,7 @@
 
 각 개념은 동의어/유의어 목록(alias)을 포함한다. 예를 들어 ``와사비''의 alias에는 ``산와사비'', ``본와사비''가 포함되어 사용자가 어떤 표현을 쓰더라도 동일 개념으로 인식한다.
 
+%----------------------------------------------------------------------
 \subsection{3채널 하이브리드 검색 (HybridDAT)}
 
 \subsubsection{설계 근거}
@@ -55,10 +117,10 @@ Dense retrieval은 의미적 유사성 검색에 강하지만 ``EC 2.5 dS/m'' �
 
 \subsubsection{HybridDATRetriever 플로우}
 
-% [Figure 2 placeholder - HybridDAT flow diagram]
+% [Figure 4 placeholder - HybridDAT flow diagram]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 2: HybridDAT Retrieval Flow]} \\[1em]
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 4: HybridDAT Retrieval Flow]} \\[1em]
 			1. Query $\rightarrow$ Ontology Matching \\
 			2. Dynamic Alpha Calculation (수치/병해 분석) \\
 			3. 3-Channel Parallel Search (Dense/Sparse/PathRAG) \\
@@ -75,6 +137,7 @@ Dense retrieval은 의미적 유사성 검색에 강하지만 ``EC 2.5 dS/m'' �
 
 \input{tables/methodology/dynamic-alpha}
 
+%----------------------------------------------------------------------
 \subsection{인과관계 그래프 (PathRAG-lite)}
 
 \subsubsection{설계 배경}
@@ -106,16 +169,17 @@ CropDP-KG~\cite{ref12}와 AgriKG~\cite{ref21}의 스키마 설계를 참조하�
 	\item \texttt{solved\_by}: 실천 $\rightarrow$ 실천 (인과 추출~\cite{ref14,ref15})
 \end{itemize}
 
+%----------------------------------------------------------------------
 \subsection{Context Shaping (컨텍스트 압축)}
 
 엣지 LLM은 토큰이 곧 지연/전력 비용이므로, 검색 결과를 그대로 전달하지 않고 압축/필터링하는 것이 핵심이다.
 
 \subsubsection{Context Shaping 파이프라인}
 
-% [Figure 3 placeholder - Context Shaping pipeline]
+% [Figure 5 placeholder - Context Shaping pipeline]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 3: Context Shaping Pipeline]} \\[1em]
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 5: Context Shaping Pipeline]} \\[1em]
 			Input (16 docs) $\rightarrow$ Crop Filter ($\sim$12 docs) \\
 			$\rightarrow$ Semantic Dedup ($\sim$8 docs) $\rightarrow$ Reranking $\rightarrow$ Output (4 docs)
 		}}
@@ -139,6 +203,7 @@ MMR~\cite{ref18}과 VRSD~\cite{ref19}를 참조하여 검색 결과의 다양성
 
 \input{tables/methodology/reranking}
 
+%----------------------------------------------------------------------
 \subsection{엣지 배포 최적화}
 
 \subsubsection{메모리 계층 구조 (RAM vs Flash)}
@@ -168,6 +233,44 @@ Q4\_K\_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양�
 	\item \textbf{Search Only}: LLM 없이 검색 결과만 반환
 \end{enumerate}
 
+%----------------------------------------------------------------------
+\subsection{응답 검증 및 근거 추적 (Verification)}
+
+엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해 다음과 같은 검증 메커니즘을 적용한다.
+
+\subsubsection{근거 추적 (Source Attribution)}
+
+생성된 응답의 각 주장에 대해 근거 문서를 명시적으로 연결한다. LLM 프롬프트에 검색된 문서와 함께 ``근거를 명시하라''는 지시를 포함하고, 응답 생성 후 주장-문서 간 임베딩 유사도를 계산하여 유사도가 임계값(0.7) 미만인 주장에 대해 경고를 표시한다.
+
+\subsubsection{환각 감지 메커니즘}
+
+% [Figure 6 placeholder - Hallucination Detection]
+\begin{figure}[htbp]
+	\centering
+	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 6: Verification Pipeline]} \\[1em]
+			1. Claim Extraction (응답에서 사실적 주장 추출) \\
+			2. Evidence Matching (주장-문서 유사도 계산) \\
+			3. Consistency Check (수치 정보 일치 확인) \\
+			4. Confidence Scoring (HIGH/MEDIUM/LOW)
+		}}
+	\caption{응답 검증 파이프라인}
+	\label{fig:verification}
+\end{figure}
+
+\subsubsection{수치 정보 검증}
+
+농업 도메인에서 수치 정보의 정확성은 특히 중요하다. 범위 검증(수온 10-25℃, pH 5.5-7.5 등 도메인 지식 기반 허용 범위), 일관성 검증(근거 문서 내 수치와 비교), 단위 검증(단위 변환 정확성 확인)을 적용한다.
+
+\subsubsection{신뢰도 표시}
+
+최종 응답에는 신뢰도 수준이 함께 제공된다:
+\begin{itemize}
+	\item \textbf{HIGH}: 모든 주장에 유사도 $\geq$0.8 근거 존재 - 응답 신뢰 가능
+	\item \textbf{MEDIUM}: 일부 주장만 근거 확인 ($\geq$60\%) - 추가 확인 권장
+	\item \textbf{LOW}: 근거 확인 불가 ($<$60\%) - 전문가 상담 권장
+\end{itemize}
+
+%----------------------------------------------------------------------
 \subsection{관련 연구와의 비교}
 
 \input{tables/methodology/comparison}
