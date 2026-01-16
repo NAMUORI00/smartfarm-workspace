@@ -243,7 +243,7 @@ MMR~\cite{ref18}과 VRSD~\cite{ref19}를 참조하여 검색 결과의 다양성
 
 \begin{itemize}
 	\item \textbf{RAM (Hot Data)}: Query Cache (LRU 128), Embedding Cache (LRU 256), FAISS mmap Active Pages, LLM Weights ($\sim$2.5GB)
-	\item \textbf{Flash/SSD (Cold Data)}: dense.faiss (mmap), sparse.pkl, responses.jsonl, graph.json
+	\item \textbf{Flash/SSD (Cold Data)}: dense.faiss (mmap), sparse.pkl, responses.jsonl, Causal Graph (in-memory built)
 \end{itemize}
 
 \subsubsection{LLM 양자화 전략}

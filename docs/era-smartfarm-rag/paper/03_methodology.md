@@ -18,18 +18,19 @@ flowchart TB
             direction TB
             DC["① Data Collection<br/>PDF, Images, Text"]
             PP["② Preprocessing<br/>OCR, Chunking, Metadata"]
-            KS["③ Knowledge Store<br/>dense.faiss, sparse.pkl<br/>graph.json"]
+            KS["③ Knowledge Store<br/>dense.faiss, sparse.pkl<br/>Causal Graph (in-memory)"]
             DC --> PP --> KS
         end
         
         subgraph Phase2["PHASE 2: Online Inference"]
             direction TB
             QA["④ Query Analysis<br/>Ontology + Dynamic Alpha"]
-            HR["⑤ HybridDAT Retrieval<br/>Dense | Sparse | PathRAG"]
-            CS["⑥ Context Shaping<br/>Crop Filter → Dedup → Rerank"]
-            LLM["⑦ LLM Generation<br/>llama.cpp Q4_K_M"]
+            HR["⑤ HybridDAT Retrieval<br/>Dense | TF-IDF | PathRAG"]
+            CS["⑥ Context Shaping<br/>Crop Filter (+0.5/×0.15)<br/>Semantic Dedup (θ=0.85)"]
+            RR["⑥.5 Reranking (Optional)<br/>BGE/LLM-lite/none"]
+            LLM["⑦ LLM Generation<br/>Qwen3-0.6B Q4_K_M<br/>Fallback: Cache→Template→Search"]
             OUT["📤 OUTPUT<br/>{answer, sources, confidence}"]
-            QA --> HR --> CS --> LLM --> OUT
+            QA --> HR --> CS --> RR --> LLM --> OUT
         end
         
         KS -->|"mmap load"| QA
@@ -37,9 +38,9 @@ flowchart TB
     
     subgraph EvalLane["🟠 EVALUATION PROTOCOL (Section 5)"]
         direction LR
-        VER["Verification<br/>Source Attribution<br/>Hallucination Detection"]
+        VER["Verification<br/>Source Attribution<br/>Groundedness Checks"]
         ABL["Ablation Study<br/>Component Analysis"]
-        BENCH["Benchmark<br/>vs EdgeRAG<br/>vs MobileRAG"]
+        BENCH["Benchmark<br/>vs Dense-only<br/>vs Sparse-only<br/>vs Naive Hybrid"]
         METRICS["Evaluation Metrics<br/>Recall@k, Latency<br/>Memory, LLM-Judge"]
         
         VER --> METRICS
@@ -602,7 +603,7 @@ flowchart TB
         DenseFile["dense.faiss<br/>전체 인덱스<br/>(mmap)"]
         SparseFile["sparse.pkl<br/>TF-IDF 행렬"]
         CacheFile["responses.jsonl<br/>응답 캐시"]
-        GraphFile["graph.json<br/>지식 그래프"]
+        GraphFile["Causal Graph<br/>(in-memory built)"]
     end
     
     subgraph MemoryBudget["<b>메모리 예산 (8GB RAM)</b>"]
