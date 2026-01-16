@@ -2,45 +2,74 @@
 
 ## 3.1 전체 시스템 개요 및 처리 흐름
 
-본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. 시스템은 **데이터 수집 및 전처리 → 지식 저장소 구축 → 하이브리드 검색 → 컨텍스트 압축 → 응답 생성 → 검증**의 6단계 파이프라인으로 구성되며, 각 단계는 엣지 환경의 메모리/연산 제약을 고려하여 설계되었다.
+본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. Figure 1은 시스템의 End-to-End 아키텍처를 **2-레인 구조**로 제시한다:
+
+- **System Pipeline (상단, 청색)**: 실제 엣지 디바이스에 배포되는 시스템 구성요소 (7단계)
+- **Evaluation Protocol (하단, 주황색)**: 시스템 검증을 위한 연구 방법론 (Section 5에서 상세 기술)
 
 ### 3.1.1 End-to-End 처리 흐름 (Figure 1)
 
 ```mermaid
-flowchart LR
-    subgraph Phase1["<b>Phase 1: 데이터 준비</b><br/>(오프라인, 1회)"]
+flowchart TB
+    subgraph SystemLane["🔵 SYSTEM PIPELINE"]
         direction TB
-        D1["<b>데이터 수집</b><br/>PDF/이미지/텍스트<br/>농업 매뉴얼, 가이드"]
-        D2["<b>전처리</b><br/>OCR, 청킹<br/>메타데이터 추출"]
-        D3["<b>지식 저장소 구축</b><br/>Dense/Sparse 인덱스<br/>인과관계 그래프<br/>온톨로지 매핑"]
-        D1 --> D2 --> D3
+        
+        subgraph Phase1["PHASE 1: Data Preparation (Offline)"]
+            direction TB
+            DC["① Data Collection<br/>PDF, Images, Text"]
+            PP["② Preprocessing<br/>OCR, Chunking, Metadata"]
+            KS["③ Knowledge Store<br/>dense.faiss, sparse.pkl<br/>graph.json"]
+            DC --> PP --> KS
+        end
+        
+        subgraph Phase2["PHASE 2: Online Inference"]
+            direction TB
+            QA["④ Query Analysis<br/>Ontology + Dynamic Alpha"]
+            HR["⑤ HybridDAT Retrieval<br/>Dense | Sparse | PathRAG"]
+            CS["⑥ Context Shaping<br/>Crop Filter → Dedup → Rerank"]
+            LLM["⑦ LLM Generation<br/>llama.cpp Q4_K_M"]
+            OUT["📤 OUTPUT<br/>{answer, sources, confidence}"]
+            QA --> HR --> CS --> LLM --> OUT
+        end
+        
+        KS -->|"mmap load"| QA
     end
     
-    subgraph Phase2["<b>Phase 2: 실시간 추론</b><br/>(온라인, 매 질의)"]
-        direction TB
-        Q1["<b>질의 분석</b><br/>온톨로지 매칭<br/>Dynamic Alpha 계산"]
-        Q2["<b>3채널 검색</b><br/>Dense + Sparse<br/>+ PathRAG"]
-        Q3["<b>컨텍스트 압축</b><br/>작물 필터링<br/>중복 제거, 리랭킹"]
-        Q4["<b>응답 생성</b><br/>llama.cpp LLM<br/>프롬프트 구성"]
-        Q5["<b>검증 & 출력</b><br/>근거 추적<br/>신뢰도 표시"]
-        Q1 --> Q2 --> Q3 --> Q4 --> Q5
+    subgraph EvalLane["🟠 EVALUATION PROTOCOL (Section 5)"]
+        direction LR
+        VER["Verification<br/>Source Attribution<br/>Hallucination Detection"]
+        ABL["Ablation Study<br/>Component Analysis"]
+        BENCH["Benchmark<br/>vs EdgeRAG<br/>vs MobileRAG"]
+        METRICS["Evaluation Metrics<br/>Recall@k, Latency<br/>Memory, LLM-Judge"]
+        
+        VER --> METRICS
+        ABL --> METRICS
+        BENCH --> METRICS
     end
     
-    Phase1 -->|"인덱스 파일<br/>mmap 로드"| Phase2
-    
-    subgraph EdgeConstraint["<b>엣지 제약</b>"]
-        E1["8GB RAM"]
-        E2["Q4_K_M 양자화"]
-        E3["p95 < 300ms"]
-    end
+    OUT -.->|"evaluated by"| VER
 ```
+
+**System Pipeline (7단계)**:
+
+| 단계 | 구성요소 | 설명 |
+|------|---------|------|
+| ① | Data Collection | PDF, 이미지, 텍스트 형태의 농업 매뉴얼/가이드 수집 |
+| ② | Preprocessing | Text extraction, OCR fallback (auto backend), **Sentence-window chunking (CHUNK_SIZE/STRIDE)**, Metadata tag (crop, causal, numeric) |
+| ③ | Knowledge Store | Dense/Sparse 인덱스 (mmap/TF-IDF), **Causal Graph (in-memory, built from docs)**, Ontology |
+| ④ | Query Analysis | 온톨로지 매칭, **Dynamic Alpha (rule-based heuristics: numeric→sparse↑, env/nutrient→sparse↑, disease/practice→PathRAG↑)** |
+| ⑤ | HybridDAT Retrieval | 3채널 하이브리드 검색 (**Dense FAISS + Sparse TF-IDF + PathRAG BFS 2-hop**) |
+| ⑥ | Context Shaping | 작물 필터링 (+0.5/×0.15), 시맨틱 중복 제거 (θ=0.85), 메모리 적응형 리랭킹 |
+| ⑦ | LLM Generation | llama.cpp Q4_K_M 기반 응답 생성, Fallback (Similar Cache→Template→Search-only) |
 
 **핵심 설계 원칙:**
 
-1. **오프라인 사전 구축**: 인덱싱/그래프 구축은 1회 오프라인으로 수행하여 런타임 부하 최소화
+1. **오프라인 사전 구축**: 인덱싱/인과관계 그래프(in-memory 빌드)는 1회 오프라인으로 수행하여 런타임 부하 최소화
 2. **메모리 효율**: mmap 기반 lazy loading으로 전체 인덱스를 RAM에 올리지 않음
-3. **도메인 특화**: 농업 온톨로지와 인과관계 그래프로 범용 RAG 대비 검색 품질 향상
-4. **검증 내장**: 근거 문서 추적과 신뢰도 표시로 환각 위험 완화
+3. **도메인 특화**: 온톨로지 +Dynamic Alpha 휴리스틱으로 범용 RAG 대비 검색 품질 향상
+4. **검증 분리**: **Groundedness Checks(keyword/source-hit) + Prompt Constraints**는 Evaluation Protocol로 분리하여 학술적 규약 준수
+
+> **Note**: Evaluation Protocol (Verification, Ablation, Benchmark)은 시스템 구성요소가 아닌 **연구 방법론**으로, Section 5 (Experiments)에서 상세히 다룬다. Verification은 프롬프트 제약 및 키워드 기반 근거 확인으로 구현되며, Benchmark는 **내부 베이스라인(Dense-only, Sparse-only, Naive Hybrid)**과 비교한다.
 
 ### 3.1.2 시스템 아키텍처 (6계층 스택)
 
@@ -644,9 +673,11 @@ flowchart TD
 
 ---
 
-## 3.8 응답 검증 및 근거 추적 (Verification)
+## 3.8 런타임 검증 및 신뢰도 표시
 
-엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해 다음과 같은 검증 메커니즘을 적용한다.
+> **Note**: 본 섹션은 시스템에 내장된 **런타임 검증 기능**을 다룬다. Ablation Study, Benchmark 비교 등 **연구 방법론으로서의 평가**는 Section 5 (Experiments)에서 상세히 기술한다.
+
+엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해, 시스템은 응답 생성 시점에 다음과 같은 런타임 검증 메커니즘을 수행한다.
 
 ### 3.8.1 근거 추적 (Source Attribution)
 
@@ -678,7 +709,7 @@ flowchart LR
 2. 응답 생성 후, 주장-문서 간 임베딩 유사도 계산
 3. 유사도가 임계값(0.7) 미만인 주장에 대해 경고 표시
 
-### 3.8.2 환각 감지 메커니즘 (Figure 9)
+### 3.8.2 런타임 환각 감지 (Figure 9)
 
 ```mermaid
 flowchart TD
@@ -749,7 +780,9 @@ flowchart TD
 
 ---
 
-## 3.9 관련 연구와의 비교
+## 3.9 관련 연구와의 차별점
+
+> **Note**: 관련 연구에 대한 포괄적인 리뷰는 Section 2 (Related Work)를 참조한다. 본 섹션에서는 제안 방법론의 **핵심 차별점**을 요약한다.
 
 ### 3.9.1 EdgeRAG vs ERA-SmartFarm-RAG
 

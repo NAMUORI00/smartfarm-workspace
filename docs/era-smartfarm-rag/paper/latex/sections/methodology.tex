@@ -1,39 +1,70 @@
 % Section 3: Methodology
 % Converted from: 03_methodology.md
-% Updated: 2026-01-15 - Added system overview, data preprocessing, verification sections
+% Updated: 2026-01-16 - Applied 2-Lane architecture design (Option B)
 
 \section{제안 방법론 (Proposed Methodology)}
 \label{sec:methodology}
 
 \subsection{전체 시스템 개요 및 처리 흐름}
 
-본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. 시스템은 \textbf{데이터 수집 및 전처리 $\rightarrow$ 지식 저장소 구축 $\rightarrow$ 하이브리드 검색 $\rightarrow$ 컨텍스트 압축 $\rightarrow$ 응답 생성 $\rightarrow$ 검증}의 6단계 파이프라인으로 구성되며, 각 단계는 엣지 환경의 메모리/연산 제약을 고려하여 설계되었다.
+본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. Figure~\ref{fig:full_flow}는 연구 전체 생애주기와 시스템 아키텍처를 \textbf{3-레인 타임라인 구조}로 제시한다:
+
+\begin{itemize}
+	\item \textbf{System Pipeline (상단, 청색)}: 실제 엣지 디바이스에 배포되는 시스템 구성요소 (7단계)
+	\item \textbf{Evaluation Protocol (하단, 주황색)}: 시스템 검증을 위한 연구 방법론 (Section~\ref{sec:experiments}에서 상세 기술)
+\end{itemize}
 
 \subsubsection{End-to-End 처리 흐름}
 
-% [Figure 1 placeholder - Full Flow Architecture]
+% [Figure 1 placeholder - 3-Lane Timeline Architecture]
 \begin{figure*}[htbp]
 	\centering
-	\fbox{\parbox{0.95\textwidth}{\centering \textbf{[Figure 1: End-to-End Architecture Flow]} \\[1em]
-			\textbf{PHASE 1: 데이터 준비 (Offline)} \\
-			데이터 수집 (PDF/이미지/텍스트) $\rightarrow$ 전처리 (OCR, 청킹, 메타데이터) $\rightarrow$ 지식 저장소 구축 (Dense/Sparse/Graph) \\[1em]
-			$\downarrow$ \textit{mmap load} \\[1em]
-			\textbf{PHASE 2: 실시간 추론 (Online)} \\
-			질의 분석 (Ontology Matching, Dynamic Alpha) $\rightarrow$ 3채널 검색 (HybridDAT) \\
-			$\rightarrow$ 컨텍스트 압축 (Crop Filter, Dedup, Reranking) $\rightarrow$ LLM 생성 (llama.cpp Q4\_K\_M) \\
-			$\rightarrow$ 검증 (Source Attribution, Hallucination Detection) $\rightarrow$ 출력 (Answer + Confidence + Sources)
+	\fbox{\parbox{0.95\textwidth}{\centering \textbf{[Figure 1: Research Lifecycle \& System Architecture (3-Lane Timeline)]} \\[1em]
+			\textcolor{blue}{\textbf{🔵 SYSTEM PIPELINE (Top Lane)}} \\[0.5em]
+			\textbf{PHASE 1: Data Preparation (Offline)} \\
+			① Data Collection $\rightarrow$ ② Preprocessing (OCR, Chunking) $\rightarrow$ ③ Knowledge Store \\[0.5em]
+			$\downarrow$ \textit{mmap load} \\[0.5em]
+			\textbf{PHASE 2: Online Inference (Per-query)} \\
+			④ Query Analysis $\rightarrow$ ⑤ HybridDAT Retrieval $\rightarrow$ ⑥ Context Shaping \\
+			$\rightarrow$ ⑦ LLM Generation $\rightarrow$ OUTPUT \{answer, sources, confidence\} \\[1em]
+			\hrulefill \\[0.5em]
+			\textcolor{orange}{\textbf{🟠 EVALUATION PROTOCOL (Bottom Lane)}} \\[0.5em]
+			Verification | Ablation Study | Benchmark Comparison \\
+			$\rightarrow$ Evaluation Metrics (Recall@k, Latency, Memory, LLM-Judge)
 		}}
-	\caption{제안 시스템의 End-to-End 아키텍처 플로우. 데이터 수집부터 검증까지 전체 처리 흐름을 보여준다.}
+	\caption{제안 시스템의 3-레인 타임라인 아키텍처. System Pipeline(상단)은 실제 배포되는 구성요소를, Evaluation Protocol(하단)은 연구 방법론을 보여준다.}
 	\label{fig:full_flow}
 \end{figure*}
 
+\textbf{System Pipeline (7단계)}:
+
+\begin{table}[htbp]
+	\centering
+	\small
+	\begin{tabular}{c|l|p{9cm}}
+		\hline
+		\textbf{단계} & \textbf{구성요소}   & \textbf{설명}                                                                                                                       \\
+		\hline
+		①           & Data Collection & PDF, 이미지, 텍스트 형태의 농업 매뉴얼/가이드 수집                                                                                                   \\
+		②           & Preprocessing   & Text extraction, OCR fallback (auto backend), Sentence-window chunking (CHUNK\_SIZE/STRIDE), Metadata tag (crop, causal, numeric) \\
+		③           & Knowledge Store & Dense/Sparse 인덱스 (mmap/TF-IDF), Causal Graph (in-memory, built from docs), Ontology                                               \\
+		④           & Query Analysis  & 온톨로지 매칭, Dynamic Alpha (rule-based heuristics)                                                                                    \\
+		⑤           & HybridDAT       & 3채널 하이브리드 검색 (Dense FAISS + Sparse TF-IDF + PathRAG BFS 2-hop)                                                                    \\
+		⑥           & Context Shaping & 작물 필터링 (+0.5/×0.15), 중복 제거 (θ=0.85), 리랭킹                                                                                          \\
+		⑦           & LLM Generation  & llama.cpp Q4\_K\_M 기반 응답 생성, Fallback chain                                                                                       \\
+		\hline
+	\end{tabular}
+\end{table}
+
 \textbf{핵심 설계 원칙}:
 \begin{enumerate}
-	\item \textbf{오프라인 사전 구축}: 인덱싱/그래프 구축은 1회 오프라인으로 수행하여 런타임 부하 최소화
+	\item \textbf{오프라인 사전 구축}: 인덱싱/인과관계 그래프(in-memory 빌드)는 1회 오프라인으로 수행하여 런타임 부하 최소화
 	\item \textbf{메모리 효율}: mmap 기반 lazy loading으로 전체 인덱스를 RAM에 올리지 않음
-	\item \textbf{도메인 특화}: 농업 온톨로지와 인과관계 그래프로 범용 RAG 대비 검색 품질 향상
-	\item \textbf{검증 내장}: 근거 문서 추적과 신뢰도 표시로 환각 위험 완화
+	\item \textbf{도메인 특화}: 온톨로지 +Dynamic Alpha 휴리스틱으로 범용 RAG 대비 검색 품질 향상
+	\item \textbf{검증 분리}: Groundedness Checks(keyword/source-hit) + Prompt Constraints는 Evaluation Protocol로 분리하여 학술적 규약 준수
 \end{enumerate}
+
+\textit{Note: Evaluation Protocol (Verification, Ablation, Benchmark)은 시스템 구성요소가 아닌 연구 방법론으로, Section~\ref{sec:experiments}에서 상세히 다룬다. Verification은 프롬프트 제약 및 키워드 기반 근거 확인으로 구현되며, Benchmark는 내부 베이스라인(Dense-only, Sparse-only, Naive Hybrid)과 비교한다.}
 
 \subsubsection{리소스 제약 및 설계 목표}
 
@@ -234,15 +265,17 @@ Q4\_K\_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양�
 \end{enumerate}
 
 %----------------------------------------------------------------------
-\subsection{응답 검증 및 근거 추적 (Verification)}
+\subsection{런타임 검증 및 신뢰도 표시}
 
-엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해 다음과 같은 검증 메커니즘을 적용한다.
+\textit{Note: 본 섹션은 시스템에 내장된 런타임 검증 기능을 다룬다. Ablation Study, Benchmark 비교 등 연구 방법론으로서의 평가는 Section~\ref{sec:experiments}에서 상세히 기술한다.}
+
+엣지 환경에서 LLM의 환각(hallucination) 위험을 완화하기 위해, 시스템은 응답 생성 시점에 다음과 같은 런타임 검증 메커니즘을 수행한다.
 
 \subsubsection{근거 추적 (Source Attribution)}
 
 생성된 응답의 각 주장에 대해 근거 문서를 명시적으로 연결한다. LLM 프롬프트에 검색된 문서와 함께 ``근거를 명시하라''는 지시를 포함하고, 응답 생성 후 주장-문서 간 임베딩 유사도를 계산하여 유사도가 임계값(0.7) 미만인 주장에 대해 경고를 표시한다.
 
-\subsubsection{환각 감지 메커니즘}
+\subsubsection{런타임 환각 감지}
 
 % [Figure 6 placeholder - Hallucination Detection]
 \begin{figure}[htbp]
@@ -271,6 +304,8 @@ Q4\_K\_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양�
 \end{itemize}
 
 %----------------------------------------------------------------------
-\subsection{관련 연구와의 비교}
+\subsection{관련 연구와의 차별점}
+
+\textit{Note: 관련 연구에 대한 포괄적인 리뷰는 Section~\ref{sec:related_work}를 참조한다. 본 섹션에서는 제안 방법론의 핵심 차별점을 요약한다.}
 
 \input{tables/methodology/comparison}
