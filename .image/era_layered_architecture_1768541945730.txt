@@ -1,0 +1,11 @@
+A detailed vertical technical architecture diagram of 'ERA-SmartFarm-RAG', stacked from Layer 0 (bottom) to Layer 5 (top).
+Layer 5 (Top) 'Application & Policy': Streamlit UI, FastAPI REST (/query, /ingest), Offline Fallback Policy.
+Layer 4 'Generation & Grounding': Prompt Template, TemplateResponder (Fallback).
+Layer 3 'Context Shaping': Crop Filter, Semantic Dedup, Memory-aware Reranking.
+Layer 2 'Retrieval Core': HybridDATRetriever containing 3 parallel blocks: Dense (FAISS), Sparse (TF-IDF), PathRAG-lite (Causal Graph). All merging into 'Score Normalization & Fusion'.
+Layer 1 'On-device Knowledge Store': SmartFarm Knowledge Base (Dense Index, Sparse Index, Causal Graph) and Domain Ontology (6 types).
+Layer 0 (Bottom) 'Device & Runtime': Hardware box (Jetson Orin, 8GB RAM) and Software box (llama.cpp, Qwen3-0.6B, FAISS mmap).
+Visual Style: Clean, modern, professional infographic. Box-in-box layout.
+Color Palette: Professional blues, greens, and soft greys.
+Background: White.
+Ensure text is legible and structure matches the stacked layer concept.

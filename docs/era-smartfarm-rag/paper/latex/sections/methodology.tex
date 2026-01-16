@@ -1,38 +1,57 @@
 % Section 3: Methodology
 % Converted from: 03_methodology.md
-% Updated: 2026-01-16 - Applied 2-Lane architecture design (Option B)
+% Updated: 2026-01-16 - Applied 3-Column horizontal layout with dataset-pipeline integration
 
 \section{제안 방법론 (Proposed Methodology)}
 \label{sec:methodology}
 
 \subsection{전체 시스템 개요 및 처리 흐름}
 
-본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. Figure~\ref{fig:full_flow}는 연구 전체 생애주기와 시스템 아키텍처를 \textbf{3-레인 타임라인 구조}로 제시한다:
+본 연구는 스마트팜 현장의 자원 제약 환경(8GB RAM)에서 근거 기반 실시간 응답을 제공하는 온디바이스 RAG 시스템을 제안한다. Figure~\ref{fig:full_flow}는 연구 전체 생애주기와 시스템 아키텍처를 \textbf{3-Column 가로 배치}로 제시한다:
 
 \begin{itemize}
-	\item \textbf{System Pipeline (상단, 청색)}: 실제 엣지 디바이스에 배포되는 시스템 구성요소 (7단계)
-	\item \textbf{Evaluation Protocol (하단, 주황색)}: 시스템 검증을 위한 연구 방법론 (Section~\ref{sec:experiments}에서 상세 기술)
+	\item \textbf{Phase 1 (좌측, 청색)}: 데이터 수집 및 인덱스 구축 (Offline, One-time)
+	\item \textbf{Phase 2 (중앙, 청색)}: 런타임 추론 파이프라인 (Online, Per-query)
+	\item \textbf{Evaluation Protocol (우측, 주황색)}: Dataset 생성 + 검증/평가 방법론
 \end{itemize}
 
 \subsubsection{End-to-End 처리 흐름}
 
-% [Figure 1 placeholder - 3-Lane Timeline Architecture]
+% [Figure 1 - 3-Column Horizontal Layout - ASCII Art based design]
+% For production: Replace with TikZ or external PDF/EPS figure
 \begin{figure*}[htbp]
 	\centering
-	\fbox{\parbox{0.95\textwidth}{\centering \textbf{[Figure 1: Research Lifecycle \& System Architecture (3-Lane Timeline)]} \\[1em]
-			\textcolor{blue}{\textbf{🔵 SYSTEM PIPELINE (Top Lane)}} \\[0.5em]
-			\textbf{PHASE 1: Data Preparation (Offline)} \\
-			① Data Collection $\rightarrow$ ② Preprocessing (OCR, Chunking) $\rightarrow$ ③ Knowledge Store \\[0.5em]
-			$\downarrow$ \textit{mmap load} \\[0.5em]
-			\textbf{PHASE 2: Online Inference (Per-query)} \\
-			④ Query Analysis $\rightarrow$ ⑤ HybridDAT Retrieval $\rightarrow$ ⑥ Context Shaping \\
-			$\rightarrow$ ⑦ LLM Generation $\rightarrow$ OUTPUT \{answer, sources, confidence\} \\[1em]
-			\hrulefill \\[0.5em]
-			\textcolor{orange}{\textbf{🟠 EVALUATION PROTOCOL (Bottom Lane)}} \\[0.5em]
-			Verification | Ablation Study | Benchmark Comparison \\
-			$\rightarrow$ Evaluation Metrics (Recall@k, Latency, Memory, LLM-Judge)
-		}}
-	\caption{제안 시스템의 3-레인 타임라인 아키텍처. System Pipeline(상단)은 실제 배포되는 구성요소를, Evaluation Protocol(하단)은 연구 방법론을 보여준다.}
+	\begin{footnotesize}
+		\begin{verbatim}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                              ERA-SmartFarm-RAG: End-to-End Research Pipeline                          ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃  PHASE 1: Data & Index Build ┃  PHASE 2: Runtime Inference   ┃  EVALUATION PROTOCOL                    ┃
+┃  (Offline, One-time)         ┃  (Online, Per-query)          ┃  (Research Methodology)                 ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ ① Data Collection            ┃ ④ Query Analysis              ┃ Dataset Generation (dataset-pipeline)  ┃
+┃   • Web Crawl (Wiki, Brit.)  ┃   • OntologyMatcher.match()   ┃   Self-Instruct → Evol-Instruct → RAFT ┃
+┃   • PDF, EN/KO Bilingual     ┃   • Dynamic Alpha Tuning      ┃   → LLM-as-a-Judge + Prometheus        ┃
+┃         ↓                    ┃         ↓                     ┃         ↓                              ┃
+┃ ② Preprocessing              ┃ ⑤ HybridDAT Retrieval         ┃ QA Dataset: 220 pairs, ROUGE-L 0.93    ┃
+┃   • OCR (EasyOCR)            ┃   Dense | Sparse | PathRAG    ┃                                        ┃
+┃   • Chunking, Metadata       ┃   Score Fusion                ┃ Verification:                          ┃
+┃   • EN→KO Translation        ┃         ↓                     ┃   Source Attribution, Groundedness     ┃
+┃         ↓                    ┃ ⑥ Context Shaping             ┃                                        ┃
+┃ ③ Knowledge Store            ┃   Crop Filter, Semantic Dedup ┃ Ablation Study:                        ┃
+┃   • dense.faiss (mmap)       ┃         ↓                     ┃   Dense-only, Sparse-only, w/o PathRAG ┃
+┃   • sparse.pkl (TF-IDF)      ┃ ⑥.5 Reranking (RAM-aware)     ┃                                        ┃
+┃   • Causal Graph             ┃   BGE / LLM-lite / none       ┃ Metrics:                               ┃
+┃   • ontology.json (6 types)  ┃         ↓                     ┃   Retrieval: Recall@k, Precision, MRR  ┃
+┃                              ┃ ⑦ LLM Generation              ┃   Edge: Latency (p50/p95), Memory      ┃
+┃   ~100 docs, ~400 chunks     ┃   Qwen3-0.6B Q4_K_M           ┃   Answer: LLM-as-a-Judge Score         ┃
+┃                              ┃   Fallback Chain              ┃                                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+LEGEND: System Pipeline (Phase 1-2) deployed on edge device (8GB RAM, Jetson Orin Nano)
+        Evaluation Protocol: Research methodology (offline analysis)
+	\end{verbatim}
+	\end{footnotesize}
+	\caption{ERA-SmartFarm-RAG 시스템의 3-Column 가로 배치 아키텍처. Phase 1(데이터 수집 및 인덱싱), Phase 2(런타임 추론), Evaluation Protocol(데이터셋 생성 및 평가)을 한눈에 비교 가능하도록 구성.}
 	\label{fig:full_flow}
 \end{figure*}
 
@@ -41,17 +60,40 @@
 \begin{table}[htbp]
 	\centering
 	\small
-	\begin{tabular}{c|l|p{9cm}}
+	\begin{tabular}{c|l|p{8.5cm}}
 		\hline
-		\textbf{단계} & \textbf{구성요소}   & \textbf{설명}                                                                                                                       \\
+		\textbf{단계} & \textbf{구성요소}   & \textbf{설명}                                                                                     \\
 		\hline
-		①           & Data Collection & PDF, 이미지, 텍스트 형태의 농업 매뉴얼/가이드 수집                                                                                                   \\
-		②           & Preprocessing   & Text extraction, OCR fallback (auto backend), Sentence-window chunking (CHUNK\_SIZE/STRIDE), Metadata tag (crop, causal, numeric) \\
-		③           & Knowledge Store & Dense/Sparse 인덱스 (mmap/TF-IDF), Causal Graph (in-memory, built from docs), Ontology                                               \\
-		④           & Query Analysis  & 온톨로지 매칭, Dynamic Alpha (rule-based heuristics)                                                                                    \\
-		⑤           & HybridDAT       & 3채널 하이브리드 검색 (Dense FAISS + Sparse TF-IDF + PathRAG BFS 2-hop)                                                                    \\
-		⑥           & Context Shaping & 작물 필터링 (+0.5/×0.15), 중복 제거 (θ=0.85), 리랭킹                                                                                          \\
-		⑦           & LLM Generation  & llama.cpp Q4\_K\_M 기반 응답 생성, Fallback chain                                                                                       \\
+		①           & Data Collection & Web Crawl (Wikipedia, Britannica), 농촌진흥청 PDF, 스마트팜코리아 가이드, EN/KO Bilingual                      \\
+		②           & Preprocessing   & OCR (EasyOCR), Sentence-window chunking, Metadata tagging, EN→KO Translation (gemini-2.5-flash) \\
+		③           & Knowledge Store & dense.faiss (mmap), sparse.pkl (TF-IDF), Causal Graph (in-memory), ontology.json (6 types)      \\
+		④           & Query Analysis  & 온톨로지 매칭, Dynamic Alpha (수치→α\_s+0.2, 환경/영양→α\_s+0.1, 병해/재배→α\_p~0.3-0.4)                        \\
+		⑤           & HybridDAT       & 3채널 하이브리드 검색 (Dense FAISS + Sparse TF-IDF + PathRAG BFS 2-hop) + Score Fusion                   \\
+		⑥           & Context Shaping & Crop Filter (+0.5/×0.15), Semantic Dedup (θ=0.85), Memory-aware Reranking                       \\
+		⑦           & LLM Generation  & Qwen3-0.6B Q4\_K\_M, Fallback Chain (Exact→Similar→Template→Search-only)                        \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\textbf{Evaluation Protocol (dataset-pipeline 기반)}:
+
+\begin{table}[htbp]
+	\centering
+	\small
+	\begin{tabular}{l|l|p{6.5cm}}
+		\hline
+		\textbf{구성요소}      & \textbf{방법론}                      & \textbf{설명}                                      \\
+		\hline
+		Dataset Generation & Self-Instruct (Wang, ACL23)       & Seed questions에서 다양한 질문 자동 생성                    \\
+		                   & Evol-Instruct (Xu, ICLR23)        & 복잡도 점진적 진화 (basic→intermediate→advanced)         \\
+		                   & RAFT (Zhang, COLM24)              & Context-grounded answer generation               \\
+		                   & LLM-as-a-Judge (Zheng, NeurIPS24) & 다차원 품질 평가 (Groundedness, Accuracy, Completeness) \\
+		\hline
+		QA Dataset         & 220 pairs                         & 6 categories, ROUGE-L diversity 0.93             \\
+		\hline
+		Metrics            & Retrieval Quality                 & Recall@k, Precision@k, MRR                       \\
+		                   & Edge Performance                  & Latency (p50/p95/p99), Memory, Throughput        \\
+		                   & Answer Quality                    & LLM-as-a-Judge Score (1-5), Hallucination Rate   \\
 		\hline
 	\end{tabular}
 \end{table}
@@ -60,11 +102,12 @@
 \begin{enumerate}
 	\item \textbf{오프라인 사전 구축}: 인덱싱/인과관계 그래프(in-memory 빌드)는 1회 오프라인으로 수행하여 런타임 부하 최소화
 	\item \textbf{메모리 효율}: mmap 기반 lazy loading으로 전체 인덱스를 RAM에 올리지 않음
-	\item \textbf{도메인 특화}: 온톨로지 +Dynamic Alpha 휴리스틱으로 범용 RAG 대비 검색 품질 향상
-	\item \textbf{검증 분리}: Groundedness Checks(keyword/source-hit) + Prompt Constraints는 Evaluation Protocol로 분리하여 학술적 규약 준수
+	\item \textbf{도메인 특화}: 온톨로지 + Dynamic Alpha 휴리스틱으로 범용 RAG 대비 검색 품질 향상
+	\item \textbf{데이터셋 생성}: 검증된 연구 방법론 (Self-Instruct, Evol-Instruct, RAFT, LLM-as-a-Judge) 적용
+	\item \textbf{검증 분리}: Groundedness Checks + Prompt Constraints는 Evaluation Protocol로 분리하여 학술적 규약 준수
 \end{enumerate}
 
-\textit{Note: Evaluation Protocol (Verification, Ablation, Benchmark)은 시스템 구성요소가 아닌 연구 방법론으로, Section~\ref{sec:experiments}에서 상세히 다룬다. Verification은 프롬프트 제약 및 키워드 기반 근거 확인으로 구현되며, Benchmark는 내부 베이스라인(Dense-only, Sparse-only, Naive Hybrid)과 비교한다.}
+\textit{Note: Evaluation Protocol (Dataset Generation, Verification, Ablation, Benchmark)은 시스템 구성요소가 아닌 연구 방법론으로, Section~\ref{sec:experiments}에서 상세히 다룬다. Dataset은 dataset-pipeline 프로젝트로 생성되었으며, Benchmark는 내부 베이스라인(Dense-only, Sparse-only, Naive Hybrid)과 비교한다.}
 
 \subsubsection{리소스 제약 및 설계 목표}
 
@@ -74,18 +117,34 @@
 
 \subsubsection{6계층 아키텍처}
 
-% [Figure 2 placeholder - 6-layer architecture diagram]
+% [Figure 2 - 6-Layer Stack Architecture]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 2: 6-Layer Stack Architecture]} \\[1em]
-			L5: Application \& Policy (Streamlit UI, FastAPI REST, Offline Fallback) \\
-			L4: Generation \& Grounding (Prompt Template, TemplateResponder) \\
-			L3: Context Shaping (Crop Filter, Semantic Dedup, Reranking) \\
-			L2: Retrieval Core (Dense/Sparse/PathRAG 3-channel) \\
-			L1: On-device Knowledge Store (FAISS, Causal Graph, Ontology) \\
-			L0: Device \& Runtime (llama.cpp, Embedding, FAISS mmap)
-		}}
-	\caption{제안 시스템의 6계층 스택 아키텍처}
+	\begin{scriptsize}
+		\begin{verbatim}
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ L5. Application & Policy                                          ┃
+┃   Streamlit UI | FastAPI REST | Offline Fallback Policy           ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ L4. Generation & Grounding                                        ┃
+┃   Prompt Template | TemplateResponder (Ontology-based Fallback)   ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ L3. Context Shaping  ★ Core Contribution                          ┃
+┃   Crop Filter (+0.5/×0.15) | Semantic Dedup | Memory-aware Rerank ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ L2. Retrieval Core (HybridDAT - 3-Channel Fusion)                 ┃
+┃   Dense (FAISS) | Sparse (TF-IDF) | PathRAG-lite (BFS 2-hop)      ┃
+┃                    ↓ Score Normalization & Fusion                 ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ L1. On-device Knowledge Store                                     ┃
+┃   dense.faiss (mmap) | sparse.pkl | Causal Graph | Ontology (6)   ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ L0. Device & Runtime (8GB RAM / Q4_K_M)                           ┃
+┃   llama.cpp (Qwen3-0.6B) | MiniLM (90MB) | FAISS mmap enabled     ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+	\end{verbatim}
+	\end{scriptsize}
+	\caption{제안 시스템의 6계층 스택 아키텍처. L3 Context Shaping이 핵심 기여로, 토큰 절감을 통해 엣지 환경에서의 효율성을 극대화함.}
 	\label{fig:architecture}
 \end{figure}
 
@@ -102,15 +161,42 @@
 
 \subsubsection{전처리 파이프라인}
 
-% [Figure 3 placeholder - Preprocessing Pipeline]
+% [Figure 3 - Data Preprocessing Pipeline]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 3: Data Preprocessing Pipeline]} \\[1em]
-			입력 (PDF/이미지/텍스트) $\rightarrow$ OCR 처리 (EasyOCR) \\
-			$\rightarrow$ 시맨틱 청킹 (200-500 토큰) $\rightarrow$ 메타데이터 추출 \\
-			(crop, category, causal\_role, numeric\_info, source)
-		}}
-	\caption{데이터 전처리 파이프라인}
+	\begin{scriptsize}
+		\begin{verbatim}
+┌─────────────────────────────────────────────────────────────────┐
+│                  DATA PREPROCESSING PIPELINE                    │
+├─────────────────────────────────────────────────────────────────┤
+│  INPUT                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│  │   PDF    │  │  Image   │  │   Text   │                       │
+│  │ 농촌진흥청│  │ 현장사진 │  │ Q&A 게시판│                       │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
+│       └─────────────┴─────────────┘                             │
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ OCR Processing (EasyOCR)                                    ││
+│  │   • Image → Text conversion                                 ││
+│  │   • Normalization: "25도" → 25℃, "EC 2.5" → EC 2.5 dS/m    ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Semantic Chunking (200-500 tokens, 50 overlap)              ││
+│  │   • Section-based split → Semantic merge → Overlap          ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Metadata Extraction                                         ││
+│  │   crop | category | causal_role | numeric_info | source     ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  OUTPUT: Chunks + Metadata → Knowledge Store                    │
+└─────────────────────────────────────────────────────────────────┘
+	\end{verbatim}
+	\end{scriptsize}
+	\caption{데이터 전처리 파이프라인. PDF/이미지/텍스트 입력에서 OCR 처리, 시맨틱 청킹, 메타데이터 추출을 거쳐 Knowledge Store로 인덱싱.}
 	\label{fig:preprocessing}
 \end{figure}
 
@@ -148,17 +234,47 @@ Dense retrieval은 의미적 유사성 검색에 강하지만 ``EC 2.5 dS/m'' �
 
 \subsubsection{HybridDATRetriever 플로우}
 
-% [Figure 4 placeholder - HybridDAT flow diagram]
+% [Figure 4 - HybridDAT Retrieval Flow]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 4: HybridDAT Retrieval Flow]} \\[1em]
-			1. Query $\rightarrow$ Ontology Matching \\
-			2. Dynamic Alpha Calculation (수치/병해 분석) \\
-			3. 3-Channel Parallel Search (Dense/Sparse/PathRAG) \\
-			4. Score Fusion (Min-Max Normalization + Weighted Sum) \\
-			5. Top-k $\times$ 2 Candidates
-		}}
-	\caption{HybridDATRetriever 검색 플로우}
+	\begin{scriptsize}
+		\begin{verbatim}
+┌─────────────────────────────────────────────────────────────────┐
+│                    HybridDATRetriever Flow                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Query: "와사비 적정 온도는?"                                    │
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 1. Ontology Matching                                        ││
+│  │    OntologyMatcher.match() → {crop: 와사비, env: 온도}       ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 2. Dynamic Alpha Calculation                                ││
+│  │    수치/단위 포함? → α_s +0.2 (Sparse 강화)                  ││
+│  │    병해/재배?     → α_p ~0.3 (PathRAG 활성화)                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 3. 3-Channel Parallel Search                                ││
+│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐               ││
+│  │  │   Dense    │ │   Sparse   │ │  PathRAG   │               ││
+│  │  │   FAISS    │ │   TF-IDF   │ │  BFS 2-hop │               ││
+│  │  │    α_d     │ │    α_s     │ │    α_p     │               ││
+│  │  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘               ││
+│  │        └──────────────┴──────────────┘                      ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 4. Score Fusion                                             ││
+│  │    final = α_d×dense + α_s×sparse + α_p×path                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  Output: Top-k × 2 Candidates → Context Shaping                 │
+└─────────────────────────────────────────────────────────────────┘
+	\end{verbatim}
+	\end{scriptsize}
+	\caption{HybridDATRetriever 검색 플로우. 온톨로지 매칭 후 Dynamic Alpha 계산, 3채널 병렬 검색, Score Fusion을 거쳐 후보 문서 생성.}
 	\label{fig:hybriddat}
 \end{figure}
 
@@ -207,14 +323,36 @@ CropDP-KG~\cite{ref12}와 AgriKG~\cite{ref21}의 스키마 설계를 참조하�
 
 \subsubsection{Context Shaping 파이프라인}
 
-% [Figure 5 placeholder - Context Shaping pipeline]
+% [Figure 5 - Context Shaping Pipeline]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 5: Context Shaping Pipeline]} \\[1em]
-			Input (16 docs) $\rightarrow$ Crop Filter ($\sim$12 docs) \\
-			$\rightarrow$ Semantic Dedup ($\sim$8 docs) $\rightarrow$ Reranking $\rightarrow$ Output (4 docs)
-		}}
-	\caption{Context Shaping 파이프라인}
+	\begin{scriptsize}
+		\begin{verbatim}
+┌─────────────────────────────────────────────────────────────────┐
+│                  Context Shaping Pipeline                       │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────┐  │
+│  │  INPUT  │ → │ CROP FILTER │ → │SEMANTIC DEDUP│ → │ OUTPUT  │  │
+│  │ 16 docs │   │  ~12 docs   │   │   ~8 docs   │   │ 4 docs  │  │
+│  └─────────┘   └─────────────┘   └─────────────┘   └─────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│  Crop Filter:                                                   │
+│    • 작물 일치: score + 0.5 (관련 문서 우선)                     │
+│    • 작물 불일치: score × 0.15 (무관한 작물 정보 억제)           │
+│    • 작물 정보 없음: 유지                                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Semantic Deduplication:                                        │
+│    • cosine similarity ≥ 0.85 → 후순위 문서 제거                │
+│    • 검색 결과의 다양성 확보 (MMR, VRSD 참조)                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Memory-aware Reranking:                                        │
+│    • RAM < 0.8GB  → none (skip, +0MB)                           │
+│    • 0.8GB-1.5GB → LLM-lite (~0MB, llama.cpp 재사용)            │
+│    • ≥ 1.5GB     → BGE Reranker (~500MB)                        │
+└─────────────────────────────────────────────────────────────────┘
+	\end{verbatim}
+	\end{scriptsize}
+	\caption{Context Shaping 파이프라인. Crop Filter, Semantic Dedup, Memory-aware Reranking을 통해 16개 검색 결과를 4개로 압축하여 토큰 절감.}
 	\label{fig:context_shaping}
 \end{figure}
 
@@ -277,16 +415,41 @@ Q4\_K\_M은 중요한 레이어는 5비트, 나머지는 4비트로 혼합 양�
 
 \subsubsection{런타임 환각 감지}
 
-% [Figure 6 placeholder - Hallucination Detection]
+% [Figure 6 - Verification Pipeline]
 \begin{figure}[htbp]
 	\centering
-	\fbox{\parbox{0.9\textwidth}{\centering \textbf{[Figure 6: Verification Pipeline]} \\[1em]
-			1. Claim Extraction (응답에서 사실적 주장 추출) \\
-			2. Evidence Matching (주장-문서 유사도 계산) \\
-			3. Consistency Check (수치 정보 일치 확인) \\
-			4. Confidence Scoring (HIGH/MEDIUM/LOW)
-		}}
-	\caption{응답 검증 파이프라인}
+	\begin{scriptsize}
+		\begin{verbatim}
+┌─────────────────────────────────────────────────────────────────┐
+│              Runtime Hallucination Detection Pipeline           │
+├─────────────────────────────────────────────────────────────────┤
+│  INPUT: LLM 생성 응답 + 검색된 근거 문서                         │
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 1. Claim Extraction                                         ││
+│  │    응답에서 사실적 주장 추출 (수치, 권장사항 등)              ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 2. Evidence Matching                                        ││
+│  │    주장-문서 임베딩 유사도 계산 (threshold: 0.7)             ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 3. Consistency Check                                        ││
+│  │    수치 정보 일치 확인 (범위, 단위 검증)                     ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ 4. Confidence Scoring                                       ││
+│  │    HIGH (≥80%) | MEDIUM (≥60%) | LOW (<60%)                 ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                     ↓                                           │
+│  OUTPUT: 응답 + 신뢰도 표시 + 근거 문서 링크 + warnings          │
+└─────────────────────────────────────────────────────────────────┘
+	\end{verbatim}
+	\end{scriptsize}
+	\caption{런타임 환각 감지 파이프라인. Claim Extraction, Evidence Matching, Consistency Check를 통해 신뢰도(HIGH/MEDIUM/LOW)를 산출.}
 	\label{fig:verification}
 \end{figure}
 
