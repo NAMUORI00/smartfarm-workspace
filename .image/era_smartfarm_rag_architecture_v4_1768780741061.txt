@@ -1,0 +1,9 @@
+A detailed technical architecture diagram of 'ERA-SmartFarm-RAG'. Layout flows from left to right. 
+Left section 'Data Ingestion (Offline)': Raw documents (PDFs, Logs) passing through OCR and Semantic Chunking into a Knowledge Base containing FAISS, TF-IDF, and Causal Graph.
+Middle section 'Dual-Path Processing (Runtime)': A User Query flows into a 3-channel Hybrid Search (Dense+Sparse+Graph), then to Context Shaping (Crop Filter, Deduplication).
+Right section 'Edge Inference': 4-bit Quantized LLM generating text, followed by a Verification module (Source Attribution, Range Check), producing a Final Answer.
+Far Right section 'Benchmarking & Analysis': A dashboard-style panel connected to the Final Answer, displaying 'Latency (ms)', 'Accuracy (%)', and 'Resource Usage (RAM)' charts to validate system performance.
+Visual style: Clean, modern, professional infographic. 
+Include icons for smart farm sensors and wasabi crops. 
+Prominently display text '8GB RAM / Offline Environment' at the bottom.
+IMPORTANT: Draw a color palette showing the main colors used in the diagram at the bottom right corner.
