@@ -152,6 +152,39 @@
 
 문서 수 증가에 따른 메모리 사용량은 선형적으로 증가하며, 400개 문서 기준 약 [TBD] KB/doc의 메모리 효율을 보인다.
 
+### 5.2.5 RAG Quality Evaluation (RQ5)
+
+**RQ5**: 제안 시스템의 생성 품질(Generation Quality)이 베이스라인 대비 우수한가?
+
+전통적인 IR 메트릭(MRR, NDCG 등)은 검색 품질만 측정하며, 최종 답변의 품질은 평가하지 못한다. 본 연구에서는 RAGAS(Es et al., 2024) 프레임워크를 활용하여 **Reference-free** 방식으로 생성 품질을 평가한다[38].
+
+**Table 5: RAGAS Evaluation Results (N=220)**
+
+| Method | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
+|--------|-------------|------------------|-------------------|----------------|
+| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] |
+| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] |
+| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] |
+| **Proposed** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+
+*평가 LLM: Qwen3-0.6B (로컬), 임베딩: MiniLM-L12-v2. 각 메트릭은 0-1 범위, 높을수록 좋음.*
+
+**RAGAS 메트릭 설명:**
+- **Faithfulness**: 답변이 검색된 context에 근거하는가 (환각 억제 정도)
+- **Answer Relevancy**: 답변이 질문에 적절히 대응하는가
+- **Context Precision**: 검색된 문서들이 답변 생성에 유용한가
+- **Context Recall**: 정답 생성에 필요한 정보가 context에 포함되었는가
+
+**분석:**
+
+[실험 결과 생성 후 작성]
+
+- Faithfulness: 제안 시스템의 온톨로지 매칭이 관련 문서 검색 → 환각 감소 기대
+- Context Precision: 작물 필터링으로 무관 문서 배제 → 정밀도 향상 기대
+- Answer Relevancy: PathRAG-lite의 인과관계 탐색 → 질문 의도에 맞는 답변 기대
+
+> **실행 방법**: `python -m benchmarking.experiments.ragas_eval --qa-file QA_PATH --output OUTPUT_PATH`
+
 ---
 
 ## 5.3 Discussion

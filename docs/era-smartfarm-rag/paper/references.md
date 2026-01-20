@@ -73,3 +73,9 @@
 [36] Ray, P. P., & Pradhan, M. P. (2025). "AgroMetLLM: An Evapotranspiration and Agro-advisory System Using Localized Large Language Models in Resource-constrained Edge." *Journal of Agrometeorology*, 27(3), 320-326. ([링크](https://doi.org/10.54386/jam.v27i3.3081))
 
 [37] Jiang, J., Yan, L., & Liu, J. (2025). "Agricultural Large Language Model Based on Precise Knowledge Retrieval and Knowledge Collaborative Generation." *Smart Agriculture*, 7(1), 20-32. ([링크](https://doi.org/10.12133/j.smartag.SA202410025))
+
+[38] Es, S., James, J., Espinosa-Anke, L., & Schockaert, S. (2024). "RAGAS: Automated Evaluation of Retrieval Augmented Generation." *EACL 2024 System Demonstrations*. ([링크](https://arxiv.org/abs/2309.15217))
+
+[39] Saad-Falcon, J., Khattab, O., Potts, C., & Zaharia, M. (2024). "ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems." *NAACL 2024*, 338-354. ([링크](https://arxiv.org/abs/2311.09476))
+
+[40] Niu, Y., et al. (2024). "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation." *arXiv:2408.08067*. ([링크](https://arxiv.org/abs/2408.08067))

@@ -169,6 +169,43 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 
 ---
 
+## 7. RAG 평가 및 벤치마크
+
+RAG 시스템의 성능 평가는 검색 품질(Retrieval)과 생성 품질(Generation) 두 측면에서 이루어진다. 전통적인 평가는 수동 레이블링된 Ground Truth에 의존하지만, 최근 LLM-as-Judge 기반 Reference-free 평가 방법이 주목받고 있다.
+
+### 7.1 전통적 평가 방법 (Ground Truth 기반)
+
+| 연구 | 연도 | 학회 | 주요 기여 | 한계점 |
+|------|------|------|----------|--------|
+| BEIR [3] | 2021 | NeurIPS | 18개 데이터셋 표준 벤치마크 → 제로샷 검색 평가 체계화 | 농업 데이터셋 미포함 → 도메인 성능 검증 안됨 |
+| MS MARCO | 2016 | NIPS | 대규모 QA 벤치마크 → 검색 모델 훈련/평가 표준 | 일반 도메인만 → 전문 분야 적용 어려움 |
+
+### 7.2 LLM-as-Judge 기반 Reference-free 평가 (최신)
+
+| 연구 | 연도 | 학회 | 주요 기여 | 한계점 |
+|------|------|------|----------|--------|
+| **RAGAS** [38] | 2024 | EACL | Ground Truth 없이 Faithfulness, Answer Relevancy, Context Precision 측정 → 500+ 인용, RAG 평가 de facto 표준 | LLM judge 품질에 의존 → 저성능 LLM 사용 시 평가 부정확 |
+| **ARES** [39] | 2024 | NAACL | 문서로부터 Synthetic QA 자동 생성 + Fine-tuned LLM Judges → Stanford 개발, 143+ 인용 | LLM API 비용 (1회성) → 대규모 평가 시 비용 증가 |
+| RAGChecker [40] | 2024 | arXiv | Fine-grained 진단 (Retrieval/Generation 분리 평가) → 문제점 세부 파악 | 설정 복잡 → 빠른 평가에 부적합 |
+
+### 7.3 RAGAS 메트릭 상세
+
+| 메트릭 | Ground Truth | 평가 대상 | 설명 |
+|--------|-------------|----------|------|
+| **Faithfulness** | 불필요 | Generation | 답변이 검색된 context에 충실한가 (환각 여부) |
+| **Answer Relevancy** | 불필요 | Generation | 답변이 질문에 관련 있는가 |
+| **Context Precision** | 불필요 | Retrieval | 검색된 문서 중 관련 문서 비율 |
+| **Context Recall** | 선택적 | Retrieval | 답변 생성에 필요한 정보가 context에 있는가 |
+| **Answer Correctness** | 필요 | Generation | 답변이 정답과 일치하는가 |
+
+**본 연구 대응:**
+- RAGAS 기반 Reference-free 평가 도입 → Ground Truth 부정확 문제 우회
+- 로컬 LLM (Qwen3-0.6B) 사용 → LLM API 비용 $0
+- IR 메트릭 (MRR, NDCG) + RAGAS 메트릭 (Faithfulness, Context Precision) 병행 평가 → 검색+생성 품질 종합 측정
+- 기존 프로젝트에 RAGAS 구현 완료 (`benchmarking/experiments/ragas_eval.py`)
+
+---
+
 ## 참고문헌
 
 [1] Lewis, P., et al. (2020). "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." *NeurIPS 2020*. ([링크](https://arxiv.org/abs/2005.11401))

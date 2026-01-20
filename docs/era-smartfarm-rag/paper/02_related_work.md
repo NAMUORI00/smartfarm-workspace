@@ -81,7 +81,19 @@ Microsoft **FarmBeats**는 농업 IoT 센서 데이터 수집/전송 아키텍�
 
 **본 연구의 대응:** llama.cpp Q4_K_M 양자화(메모리 75%↓), FAISS mmap(메모리 맵, 인덱스 전체를 RAM에 올리지 않고 필요한 부분만 로드), 메모리 적응형 리랭킹(가용 메모리에 따라 리랭커 자동 선택: 0.8GB 미만→비활성화, 0.8~1.5GB→경량, 1.5GB 이상→고품질)을 통해 RAG 시스템 전체의 엣지 배포를 지원한다.
 
-## 2.8 연구 공백 및 본 연구의 기여
+## 2.8 RAG 평가 방법론 (RAG Evaluation Methods)
+
+전통적인 RAG 평가는 Precision, Recall, MRR 등 IR 메트릭에 의존하며, 수동 레이블링된 Ground Truth(정답 문서)가 필수적이다. 그러나 Ground Truth 구축에는 도메인 전문가의 검증이 필요하여 비용이 높고, 합성 데이터의 source_ids 정확도 문제가 발생한다.
+
+**RAGAS**(Es et al., 2024)는 LLM-as-Judge 기반 Reference-free 평가 프레임워크로, Ground Truth 없이 Faithfulness(답변 충실도), Answer Relevancy(답변 관련성), Context Precision(컨텍스트 정밀도)을 측정한다[38]. EACL 2024 Demo Track에서 발표되어 500회 이상 인용되었으며, RAG 평가의 de facto 표준으로 자리잡았다.
+
+**ARES**(Saad-Falcon et al., 2024)는 Stanford에서 개발한 자동화 평가 시스템으로, 문서로부터 Synthetic QA를 자동 생성하고 Fine-tuned LLM Judges로 평가한다[39]. NAACL 2024 Long Paper로 발표되어 학술적 권위를 인정받았다. PPI(Prediction-Powered Inference)를 통해 소량의 human annotation(~150개)으로 신뢰구간을 제공한다.
+
+**한계점:** 기존 RAG 평가 연구는 Ground Truth 의존성이 높아 소규모 도메인 특화 데이터셋에서 평가 품질 문제가 발생한다. LLM-as-Judge 방식도 LLM의 편향과 비용 문제가 존재한다.
+
+**본 연구의 대응:** RAGAS 기반 Reference-free 평가를 도입하여 Ground Truth 품질 문제를 우회하고, 로컬 LLM(Qwen3-0.6B)을 활용하여 평가 비용을 최소화한다. IR 메트릭(MRR, NDCG)과 RAGAS 메트릭(Faithfulness, Answer Relevancy)을 병행하여 검색 품질과 생성 품질을 종합 평가한다.
+
+## 2.9 연구 공백 및 본 연구의 기여
 
 | 연구 영역 | 기존 연구의 한계 | 본 연구의 기여 |
 |----------|-----------------|---------------|
@@ -91,3 +103,4 @@ Microsoft **FarmBeats**는 농업 IoT 센서 데이터 수집/전송 아키텍�
 | 농업 온톨로지 | 지식 표현 중심 | 검색 단계 직접 활용 |
 | 인과관계 추출 | 문장 수준, 딥러닝 의존 | 문서 수준, 규칙 기반 |
 | 엣지 RAG | 범용 메모리 최적화 | 도메인 특화 + 품질 향상 |
+| **RAG 평가** | Ground Truth 의존, 고비용 | RAGAS Reference-free, 로컬 LLM |
