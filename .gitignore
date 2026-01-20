@@ -133,3 +133,4 @@ datasets/
 .env.*.local
 credentials.json
 secrets.yaml
+.icon/
