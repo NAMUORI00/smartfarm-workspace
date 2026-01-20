@@ -164,28 +164,36 @@ class BaseRetriever(ABC):
 
 ## Documentation
 
-All documentation MUST be stored in the **workspace root `docs/` directory**, not in submodules.
+All documentation MUST be stored in the **workspace root `docs/` directory**, organized per project.
 
 ### Directory Structure
 
 ```
 docs/
 ├── README.md                      # Document index
-├── methodology/                   # Research methodology, related work
-├── validation/                    # Validation reports, benchmarks
-├── dataset/                       # Dataset cards, limitations
-└── paper/                         # Paper drafts, figures
-    └── figures/
+├── era-smartfarm-rag/             # RAG project docs
+│   ├── methodology/               # Research methodology, related work
+│   ├── validation/                # Validation reports, benchmarks
+│   ├── dataset/                   # Dataset cards, limitations
+│   └── paper/                     # Paper drafts, figures
+│       └── figures/
+└── dataset-pipeline/              # Pipeline project docs
+    ├── methodology/
+    ├── validation/
+    ├── dataset/
+    └── paper/
+        └── figures/
 ```
 
 ### Rules
 
 | Document Type | Location | Examples |
 |---------------|----------|----------|
-| Validation reports | `docs/validation/` | `ERA_RAG_VALIDATION_REPORT.md` |
-| Paper drafts | `docs/paper/` | `experiments_section_draft.md` |
-| Dataset documentation | `docs/dataset/` | `DATASET_CARD.md`, `LIMITATIONS.md` |
-| Methodology/Design | `docs/methodology/` | `smartfarm-rag-methodology.md` |
+| Validation reports | `docs/era-smartfarm-rag/validation/` | `ERA_RAG_VALIDATION_REPORT.md` |
+| Paper drafts | `docs/era-smartfarm-rag/paper/` | `experiments_section_draft.md` |
+| Dataset documentation | `docs/era-smartfarm-rag/dataset/` | `DATASET_CARD.md`, `LIMITATIONS.md` |
+| Methodology/Design | `docs/era-smartfarm-rag/methodology/` | `smartfarm-rag-methodology.md` |
+| Pipeline docs | `docs/dataset-pipeline/` | `docs/dataset-pipeline/paper/` |
 
 **NEVER** create documentation in submodule directories (`era-smartfarm-rag/docs/`, `dataset-pipeline/docs/`).
 
