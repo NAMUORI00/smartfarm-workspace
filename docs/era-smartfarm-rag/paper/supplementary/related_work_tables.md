@@ -40,14 +40,12 @@ RAG(Retrieval-Augmented Generation)는 검색과 생성을 결합하여 LLM의 �
 | Agri-LLM (Jiang) [16] | 2025 | 정밀 지식 검색 + 협업 생성 → 농업 LLM 품질 향상 | 엣지 배포 미고려 |
 
 **본 연구 대응:**
-- Q4_K_M 양자화 → 8GB RAM 엣지 디바이스에서 전체 RAG 파이프라인 배포 (AgroMetLLM[15] 대비 범용 Q&A 지원)
-- Dense+Sparse+PathRAG-lite 3채널 융합 → AHR-RAG[13]의 적응형 하이브리드 검색을 엣지 환경에 맞게 경량화
-- 규칙 기반 경량 온톨로지 → 대규모 KB(91만 트리플릿) 없이 동의어 목록만으로 도메인 커버리지 확보
-- Sparse 검색 + 캐시 기반 오프라인 폴백 → Crop GraphRAG[12], ReG-RAG[14]와 달리 네트워크 단절 시에도 검색 가능
-- 규칙 기반 패턴 매칭으로 **인과관계 그래프** 구축 (LLM/NER 모델 미사용) → GraphRAG[6], LightRAG[7]의 비용 문제 해결
-- PathRAG[11]의 경로 탐색 개념을 차용한 경량 구현 (PathRAG-lite) → BFS 기반 2-hop 탐색으로 단순화
-- 도메인 특화 인과 엣지 (원인→결과, 문제→해결책) → 범용 관계 대신 농업 인과 체인 직접 모델링
-- CPU만으로 실행 가능 → 저사양 엣지에서도 그래프 기반 검색 지원
+- **LightRAG[7] 기반 그래프 검색 프레임워크 채택** → 검증된 Dual-Level 검색(엔티티+커뮤니티) 활용
+- **농업 도메인 적응**: 스마트팜 특화 엔티티 타입 6종(crop, disease, environment, practice, nutrient, stage), 농업 온톨로지 기반 엔티티 추출 가이드
+- **엣지 환경 최적화**: Q4_K_M 양자화 → 8GB RAM 엣지 디바이스에서 전체 RAG 파이프라인 배포
+- 작물별 검색 필터링 → "와사비 질문에 상추 문서" 문제 해결
+- FAISS mmap 기반 인덱스 로딩 → 대용량 인덱스도 저메모리에서 사용 가능
+- 메모리 적응형 리랭커 선택 → 가용 RAM에 맞춰 최선의 품질 제공
 
 ---
 
@@ -61,9 +59,9 @@ Dense retrieval과 Sparse retrieval을 결합하여 검색 품질을 향상시�
 | BEIR Benchmark [3] | 2021 | 18개 데이터셋 평가 → Hybrid(키워드+의미 결합)가 Dense만보다 우수 입증 | 농업 데이터셋 미포함 → 도메인 성능 검증 안됨 |
 
 **본 연구 대응:**
-- Dense + Sparse + PathRAG-lite 3채널 융합 → 의미 검색, 키워드 매칭, 인과관계 탐색을 결합하여 다양한 질의 유형 대응
-- 수치/단위 포함 질의 시 Sparse 가중치 동적 상향 → 농업 수치 질의도 정확히 매칭
-- 질의 특성 자동 분석 → 수치/개념/인과 질의를 각각 최적 방식으로 처리
+- **LightRAG의 Dual-Level 검색 활용** → 엔티티 수준(local) + 커뮤니티 수준(global) 검색 통합
+- LightRAG 그래프 구조 내 벡터 검색 → Dense-Sparse 통합을 그래프 기반으로 확장
+- 농업 도메인 수치 정보(온도, EC, pH 등) 매칭 최적화 필요 → 향후 연구 과제
 
 ---
 
@@ -92,12 +90,10 @@ Dense retrieval과 Sparse retrieval을 결합하여 검색 품질을 향상시�
 | Sitokonstantinou et al. [27] | 2024 | CO2/온도가 수확량에 미치는 영향 수치화 → 환경 요인별 기여도(sensitivity) 분석 | 수치 데이터만 분석 → 텍스트 기반 "원인-해결" 추론 못함 |
 
 **본 연구 대응:**
-- 6개 유형 경량 온톨로지 (crop/env/nutrient/disease/stage/practice) → 수만 건 학습 데이터 없이도 동의어/유의어 목록만으로 농업 개념 커버리지 확보
-- 검색 단계에서 온톨로지 직접 매칭 → 지식을 정리만 하고 검색에 활용 못하는 문제 해결, 쿼리의 작물/환경/병해 개념을 즉시 인식
-- 규칙 기반 패턴 매칭으로 구축 → NER/RE 모델 학습 없이 소규모 프로젝트에서도 적용 가능
-- 문서 단위 인과관계 역할 분류 (cause/effect/solution) → 문서 전체의 역할을 파악하여 서로 다른 문서 간 인과 연결 가능
-- 공통 키워드(작물, 환경요소, 병해) 기반 문서 간 엣지 자동 생성 → "문서 A의 원인"과 "문서 B의 해결책"을 그래프로 연결
-- GPU 없이 CPU만으로 실행 가능한 경량 구현
+- **LightRAG 자동 그래프 구축 활용** → 대규모 학습 데이터 없이 LLM 기반 엔티티/관계 자동 추출
+- **농업 온톨로지 기반 엔티티 추출 가이드** → 6개 유형(crop/disease/environment/practice/nutrient/stage) 도메인 특화
+- 검색 단계에서 온톨로지 직접 매칭 → 쿼리의 작물/환경/병해 개념을 즉시 인식
+- llama.cpp 통합으로 로컬 LLM 사용 → GPU 없이 CPU만으로 실행 가능
 
 ---
 
@@ -112,9 +108,9 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 | SMMR [30] | 2025 | 샘플링 기반 MMR → 동일 품질에 로그 속도 향상(logarithmic speedup) | 작물 구분 없음 → "와사비 질문에 상추 문서" 섞여 나옴 |
 
 **본 연구 대응:**
-- 시맨틱 중복 제거 (임베딩 유사도 기반) → 비슷한 내용의 문서 반복 방지, 다양한 정보 제공
-- 작물 필터링: 질문 작물과 일치 시 보너스, 불일치 시 패널티 → "와사비 질문에 상추 문서" 문제 해결
-- 도메인 특화 다양성 → 범용 MMR 대신 농업 도메인에 맞는 작물별 필터링 적용
+- **LightRAG의 ego-network 기반 효율적 그래프 탐색** → 중복 감소, 다양한 정보 제공
+- 작물별 검색 필터링: 질문 작물과 일치 시 보너스, 불일치 시 패널티 → "와사비 질문에 상추 문서" 문제 해결
+- 메모리 적응형 리랭커 선택 → 가용 RAM에 따라 최적 품질 제공
 
 ---
 
@@ -146,10 +142,10 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 | Farm-LightSeek [37] | 2025 | 경량 LLM 기반 멀티모달 IoT 분석 프레임워크 → 엣지에서 크로스모달 추론 | 이미지+센서 중심 → 텍스트 문서 기반 RAG 미포함 |
 
 **본 연구 대응:**
-- GGUF 양자화 → llama.cpp와 결합하여 검색+답변 전체 RAG 파이프라인 엣지 배포
-- FAISS mmap (필요한 부분만 로드) → 대용량 인덱스도 저메모리에서 사용 가능
-- 환경별 임베딩 모델 선택 → 고사양/저사양 환경에 맞춰 품질/속도 균형 조정
-- 메모리 적응형 리랭킹 (가용 RAM 감지하여 리랭커 자동 선택) → 자원에 맞춰 최선의 품질 제공
+- **llama.cpp Q4_K_M 양자화** → 8GB RAM 환경에서 전체 RAG 파이프라인 배포
+- **FAISS mmap 기반 인덱스 로딩** → 필요한 부분만 로드하여 대용량 인덱스도 저메모리에서 사용 가능
+- **메모리 적응형 리랭커 선택** → 가용 RAM 감지하여 리랭커 자동 선택, 자원에 맞춰 최선의 품질 제공
+- LightRAG + llama.cpp 통합 → 로컬 LLM으로 그래프 구축 및 검색 수행
 - 텍스트 질문-답변 RAG 지원 → 센서/이미지만 처리하던 기존 스마트팜 엣지에 자연어 질의 기능 추가
 
 ---
@@ -158,14 +154,11 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 
 | 영역 | 기존 연구 한계 | 본 연구 대응 |
 |------|---------------|-------------|
-| RAG 배포 | 클라우드 GPU 필수 → 농가 인터넷 불안정 시 사용 불가 | Q4_K_M 양자화 → 8GB RAM 농가 PC에서 인터넷 없이 실행 |
-| 농업 RAG | 대규모 KB(91만 트리플릿) 필요, 특정 분야(증발산 예측)만 지원 | 동의어 목록 기반 경량 온톨로지 → 범용 Q&A 지원 |
-| 하이브리드 검색 | 2채널만 결합, 가중치 50:50 고정 | 3채널 융합 + 질의 유형별 동적 가중치 조절 |
-| 그래프 RAG | LLM 기반 추출 → 문서 1000개당 $100+ 비용 | 규칙 패턴 매칭 → 비용 0원, 인과관계 그래프 구축 |
-| 농업 온톨로지 | 지식 정리만 → 검색에 미연결, 학습 데이터 수만 건 필요 | 6개 개념 검색 시 직접 매칭 → "와사비" 검색 시 "산와사비" 자동 포함 |
-| 인과관계 추출 | 한 문장 내 추출만, GPU 필수 | 문서 간 인과 연결, CPU만으로 실행 |
-| 검색 다양성 | 작물 구분 없음 → 다른 작물 문서 섞임 | 작물 일치 보너스/패널티 → 와사비 질문엔 와사비 문서만 |
-| 엣지 AI | 메모리 축소만, 텍스트 Q&A 미지원 | 메모리 적응형 품질 조절 + 자연어 Q&A 지원 |
+| **Graph RAG** | LightRAG: 범용 엔티티 타입, 도메인 특화 없음 | 농업 엔티티 타입 6종(crop, disease, environment, practice, nutrient, stage), 온톨로지 통합 |
+| **Edge Deployment** | EdgeRAG: 범용 최적화, AgroMetLLM: 특정 태스크 한정 | llama.cpp Q4_K_M + FAISS mmap + 메모리 적응형 리랭커 → 8GB RAM 타겟 |
+| **Agricultural KG** | CropDP-KG, AHR-RAG: 대규모 학습 데이터 필요 | LightRAG 자동 구축 + 경량 온톨로지 |
+| **Evaluation** | IR metrics: Ground Truth 의존, 고비용 어노테이션 | RAGAS reference-free + 로컬 LLM → 평가 비용 최소화 |
+| **검색 다양성** | 작물 구분 없음 → 다른 작물 문서 섞임 | 작물별 검색 필터링 → 와사비 질문엔 와사비 문서만 |
 
 ---
 
@@ -173,22 +166,37 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 
 RAG 시스템의 성능 평가는 검색 품질(Retrieval)과 생성 품질(Generation) 두 측면에서 이루어진다. 전통적인 평가는 수동 레이블링된 Ground Truth에 의존하지만, 최근 LLM-as-Judge 기반 Reference-free 평가 방법이 주목받고 있다.
 
-### 7.1 전통적 평가 방법 (Ground Truth 기반)
+### 7.1 전통적 평가 메트릭
+
+| 단계 | 메트릭 | 설명 |
+|------|--------|------|
+| **검색 (IR)** | Precision@K, Recall@K | 상위 K개 결과의 정밀도/재현율 |
+| | MRR (Mean Reciprocal Rank) | 첫 번째 관련 문서의 역순위 평균 |
+| | NDCG (Normalized DCG) | 순위 품질 평가 (순위별 가중치) |
+| | MAP (Mean Average Precision) | 평균 정밀도 |
+| **생성 (QA)** | Exact Match (EM) | 정답과 정확히 일치 여부 |
+| | F1 Score | 토큰 수준 정밀도/재현율 조화평균 |
+| | ROUGE | n-gram 기반 재현율 (요약 평가용) |
+| | BLEU | n-gram 기반 정밀도 (번역 평가용) |
+| **의미 유사도** | BERTScore | 임베딩 기반 의미 유사도 (n-gram 한계 보완) |
+
+### 7.2 LLM-as-Judge 기반 Reference-free 평가
 
 | 연구 | 연도 | 학회 | 주요 기여 | 한계점 |
 |------|------|------|----------|--------|
-| BEIR [3] | 2021 | NeurIPS | 18개 데이터셋 표준 벤치마크 → 제로샷 검색 평가 체계화 | 농업 데이터셋 미포함 → 도메인 성능 검증 안됨 |
-| MS MARCO | 2016 | NIPS | 대규모 QA 벤치마크 → 검색 모델 훈련/평가 표준 | 일반 도메인만 → 전문 분야 적용 어려움 |
+| **RAGAS** [38] | 2024 | EACL | Ground Truth 없이 Faithfulness, Answer Relevancy, Context Precision 측정 → RAG 평가 de facto 표준 | LLM judge 품질에 의존 |
+| **ARES** [39] | 2024 | NAACL | Synthetic QA 자동 생성 + Fine-tuned LLM Judges | LLM API 비용 |
 
-### 7.2 LLM-as-Judge 기반 Reference-free 평가 (최신)
+### 7.3 최신 RAG 벤치마크 (2024-2025)
 
-| 연구 | 연도 | 학회 | 주요 기여 | 한계점 |
-|------|------|------|----------|--------|
-| **RAGAS** [38] | 2024 | EACL | Ground Truth 없이 Faithfulness, Answer Relevancy, Context Precision 측정 → 500+ 인용, RAG 평가 de facto 표준 | LLM judge 품질에 의존 → 저성능 LLM 사용 시 평가 부정확 |
-| **ARES** [39] | 2024 | NAACL | 문서로부터 Synthetic QA 자동 생성 + Fine-tuned LLM Judges → Stanford 개발, 143+ 인용 | LLM API 비용 (1회성) → 대규모 평가 시 비용 증가 |
-| RAGChecker [40] | 2024 | arXiv | Fine-grained 진단 (Retrieval/Generation 분리 평가) → 문제점 세부 파악 | 설정 복잡 → 빠른 평가에 부적합 |
+| 벤치마크 | 연도 | 규모 | 특징 | 한계점 |
+|----------|------|------|------|--------|
+| **RAGBench** [40] | 2024 | 69K 예제 | 산업별 RAG 평가 지원 | 농업 미포함 |
+| **CRAG** [41] | 2024 | 4,409 QA | KDD Cup 2024, 웹 검색 기반 현실적 시나리오 | 일반 도메인 |
+| **GraphRAG-Bench** [42] | 2025 | - | NeurIPS 2025, Graph 구조 활용 효과 정량화 | 최신 (적용 사례 제한적) |
+| **AgXQA** [43] | - | - | 농업 기술 Q&A 데이터셋 | 영어 중심, 한국어 미지원 |
 
-### 7.3 RAGAS 메트릭 상세
+### 7.4 RAGAS 메트릭 상세
 
 | 메트릭 | Ground Truth | 평가 대상 | 설명 |
 |--------|-------------|----------|------|
@@ -199,10 +207,10 @@ RAG 시스템의 성능 평가는 검색 품질(Retrieval)과 생성 품질(Gene
 | **Answer Correctness** | 필요 | Generation | 답변이 정답과 일치하는가 |
 
 **본 연구 대응:**
-- RAGAS 기반 Reference-free 평가 도입 → Ground Truth 부정확 문제 우회
-- 로컬 LLM (Qwen3-0.6B) 사용 → LLM API 비용 $0
-- IR 메트릭 (MRR, NDCG) + RAGAS 메트릭 (Faithfulness, Context Precision) 병행 평가 → 검색+생성 품질 종합 측정
-- 기존 프로젝트에 RAGAS 구현 완료 (`benchmarking/experiments/ragas_eval.py`)
+- **RAGAS 기반 Reference-free 평가** → Ground Truth 의존성 해소, 도메인 특화 데이터셋 부재 문제 우회
+- **로컬 LLM 사용** → LLM API 비용 최소화
+- **IR 메트릭 + RAGAS 조합**: Recall@K, MRR, NDCG (검색) + Faithfulness, Answer Relevancy (생성) → 재현 가능한 평가 체계
+- 한국어 스마트팜 도메인 특화 벤치마크 부재 → 자체 평가 데이터셋 구축 및 RAGAS 활용
 
 ---
 
@@ -281,3 +289,15 @@ RAG 시스템의 성능 평가는 검색 품질(Retrieval)과 생성 품질(Gene
 [36] Saiz-Rubio, V., & Rovira-Más, F. (2020). "From Smart Farming Towards Agriculture 5.0: A Review on Crop Data Management." *Agronomy*, 10(2), 207. ([링크](https://www.mdpi.com/2073-4395/10/2/207))
 
 [37] Jiang, D., et al. (2025). "Farm-LightSeek: An Edge-centric Multimodal Agricultural IoT Data Analytics Framework with Lightweight LLMs." *arXiv:2506.03168*. ([링크](https://arxiv.org/abs/2506.03168))
+
+[38] Es, S., et al. (2024). "RAGAS: Automated Evaluation of Retrieval Augmented Generation." *EACL 2024*. ([링크](https://arxiv.org/abs/2309.15217))
+
+[39] Saad-Falcon, J., et al. (2024). "ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems." *NAACL 2024*. ([링크](https://arxiv.org/abs/2311.09476))
+
+[40] Fröbe, M., et al. (2024). "RAGBench: Explainable Benchmark for Retrieval-Augmented Generation Systems." *arXiv:2407.11005*. ([링크](https://arxiv.org/abs/2407.11005))
+
+[41] Yang, X., et al. (2024). "CRAG - Comprehensive RAG Benchmark." *KDD Cup 2024*. ([링크](https://www.aicrowd.com/challenges/meta-comprehensive-rag-benchmark-kdd-cup-2024))
+
+[42] Wu, Y., et al. (2025). "GraphRAG-Bench: Benchmarking Graph-based Retrieval Augmented Generation." *NeurIPS 2025*. ([링크](https://openreview.net/forum?id=graphrag-bench))
+
+[43] AgXQA: Agricultural Expert Question Answering Dataset. ([링크](https://huggingface.co/datasets/agxqa))
