@@ -10,14 +10,34 @@
 
 본 연구는 엣지 환경에서의 도메인 특화 RAG 시스템 설계를 검증하는 **파일럿 스터디(pilot study)**이다. 소규모 데이터셋의 통계적 한계를 인지하고, 시스템 아키텍처의 타당성 검증과 엣지 배포 가능성 확인에 초점을 맞춘다.
 
-**데이터셋 구성:**
+**실험 도메인:**
+
+| 도메인 | 역할 | 데이터 소스 | 비고 |
+|--------|------|-------------|------|
+| **와사비 (Main)** | 주요 검증 | 시즈오카현 가이드라인 PDF, 농업 논문, 위키 | 서론 1.6절 근거 |
+| **SeedBench (Aux)** | 일반화 검증 | 벼 육종 QA 2,264개 | ACL 2025 벤치마크 |
+
+**QA 데이터셋 생성 (RAGEval 방법론 적용):**
+
+RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적용하여 평가 데이터셋을 구축하였다:
+
+1. **핵심 구절 추출**: 코퍼스에서 도메인 관련 Key Points 자동 추출
+2. **QA 쌍 생성**: LLM을 활용한 질문-답변 쌍 생성
+3. **복잡도 분류**: Basic(단일 사실) / Intermediate(추론) / Advanced(다단계 참조)
+4. **질의 유형 분류** (Know Your RAG, Cuconasu et al., COLING 2025):
+   - Factoid: 단순 사실 확인 질의
+   - Reasoning: 인과관계 추론 필요 질의
+   - Multi-hop: 다중 문서 참조 필요 질의
+
+**와사비 데이터셋 구성:**
 
 | 항목 | 규모 | 비고 |
 |------|------|------|
-| 말뭉치 | 402개 청크 | 영어 원문 → 한국어 번역 |
-| QA 데이터셋 | 220개 쌍 | LLM-as-a-Judge 생성 |
-| 카테고리 | 6개 | 재배기술, 환경관리, 병해충, 영양관리, 가공유통, 품종 |
-| 복잡도 | 3단계 | basic, intermediate, advanced |
+| 말뭉치 | 402개 청크 | PDF/위키 텍스트 추출 |
+| QA 데이터셋 | 220개 쌍 | RAGEval 방법론 적용 |
+| 카테고리 | 4개 | 재배기술, 환경관리, 병해충, 영양관리 |
+| 복잡도 | 3단계 | Basic, Intermediate, Advanced |
+| 질의 유형 | 3종 | Factoid, Reasoning, Multi-hop |
 
 **통계적 한계:**
 
@@ -30,11 +50,17 @@
 | 베이스라인 | 설명 | 특징 |
 |------------|------|------|
 | **Dense-only** | FAISS 임베딩 유사도 검색 | 의미적 유사성 |
-| **Sparse-only** | TF-IDF 키워드 매칭 | 정확한 용어 매칭 |
-| **Naive Hybrid** | 고정 가중치 결합 (α=0.5) | 단순 융합 |
-| **Proposed (HybridDAT)** | Dense+Sparse+PathRAG 3채널 융합 + 동적 가중치 + 온톨로지 + 작물 필터 + 중복 제거 | 도메인 특화 |
+| **BM25** | Sparse 키워드 검색 | 정확한 용어 매칭 |
+| **RRF** | Reciprocal Rank Fusion (Dense+BM25) | 하이브리드 융합 |
+| **LightRAG** | Dual-Level 그래프 검색 (Entity + Community) | 지식 그래프 기반 |
 
-> **구현 참고**: 베이스라인 수식 및 HybridDAT 상세 알고리즘은 Section 3.3 참조. 모든 베이스라인은 공정한 비교를 위해 동일 임베딩 모델로 자체 구현하였다. Sparse 검색은 소규모 말뭉치에서 BM25의 IDF 추정 불안정성을 고려하여 TF-IDF를 사용하였다.
+**LightRAG (Guo et al., EMNLP 2025) 제안 시스템 특징:**
+- **Entity-Level**: 개별 엔티티 노드 기반 검색
+- **Community-Level**: Leiden 알고리즘으로 클러스터링된 커뮤니티 요약 활용
+- **Ego-Network Traversal**: 관련 엔티티의 이웃 노드까지 확장 탐색
+- **도메인 적응**: 농업 도메인 온톨로지 연계 (작물명, 병해충, 환경요인 등)
+
+> **구현 참고**: 베이스라인 수식 및 LightRAG 상세 알고리즘은 Section 3.3 참조. 모든 베이스라인은 공정한 비교를 위해 동일 임베딩 모델(MiniLM-L12-v2)로 자체 구현하였다.
 
 ### 5.1.3 Metrics and K Selection
 
@@ -65,16 +91,16 @@
 
 ### 5.2.1 Baseline Comparison (RQ1)
 
-**RQ1**: 제안하는 HybridDAT 시스템이 기존 검색 방법 대비 얼마나 성능이 향상되는가?
+**RQ1**: 제안하는 LightRAG 기반 시스템이 기존 검색 방법 대비 얼마나 성능이 향상되는가?
 
 **Table 1: Baseline Performance Comparison (N=220)**
 
 | Method | P@4 | R@4 | MRR | NDCG@4 | Hit@4 |
 |--------|-----|-----|-----|--------|-------|
 | Dense-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| **Proposed** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+| BM25 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| RRF | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 
 *각 값은 mean ± std 형식. MDE ≈ 4-5%이므로 이보다 작은 차이는 통계적으로 유의하지 않을 수 있음.*
 
@@ -82,35 +108,41 @@
 
 [실험 결과 생성 후 작성]
 
-- Dense vs Sparse: 의미적 vs 키워드 매칭 특성 비교
-- Naive Hybrid 한계: 고정 가중치의 질의 특성 무시
-- Proposed 개선: 동적 가중치 조정 효과
+- Dense vs BM25: 의미적 vs 키워드 매칭 특성 비교
+- RRF 한계: 단순 랭킹 융합으로 관계 정보 미활용
+- LightRAG 개선: 그래프 기반 엔티티/커뮤니티 검색으로 맥락 풍부화
 
 ### 5.2.2 Ablation Study (RQ2)
 
-**RQ2**: 제안 시스템의 각 컴포넌트가 성능 향상에 얼마나 기여하는가?
+**RQ2**: LightRAG의 각 컴포넌트가 성능 향상에 얼마나 기여하는가?
 
 **Table 2: Ablation Results (N=220)**
 
-| Configuration | DAT | Onto | Crop | Dedup | PathRAG | MRR | ΔMRR |
-|---------------|-----|------|------|-------|---------|-----|------|
-| Base (Naive) | - | - | - | - | - | [TBD] | -- |
-| +DAT | ✓ | - | - | - | - | [TBD] | +[TBD] |
-| +DAT+Onto | ✓ | ✓ | - | - | - | [TBD] | +[TBD] |
-| +DAT+Onto+Crop | ✓ | ✓ | ✓ | - | - | [TBD] | +[TBD] |
-| +DAT+Onto+Dedup | ✓ | ✓ | - | ✓ | - | [TBD] | +[TBD] |
-| +DAT+Onto+PathRAG | ✓ | ✓ | - | - | ✓ | [TBD] | +[TBD] |
-| **Full (Proposed)** | ✓ | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
+| Configuration | Entity | Community | Graph Traverse | Domain Ontology | MRR | ΔMRR |
+|---------------|--------|-----------|----------------|-----------------|-----|------|
+| Dense-only (Base) | - | - | - | - | [TBD] | -- |
+| +Entity | ✓ | - | - | - | [TBD] | +[TBD] |
+| +Community | - | ✓ | - | - | [TBD] | +[TBD] |
+| +Entity+Community | ✓ | ✓ | - | - | [TBD] | +[TBD] |
+| +Full Graph | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
+| **LightRAG (Full)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
 
 *Δ는 Base 대비 누적 개선. 컴포넌트 간 상호작용으로 개별 기여도 합이 전체와 불일치할 수 있음.*
 
 **Key Findings:**
 
-1. **DAT**: 질의 특성 기반 동적 가중치 조정 (수치 질의 시 Sparse 강화)
-2. **Ontology**: 도메인 개념 매칭으로 환경/영양 질의에서 효과적
-3. **Crop Filter**: 작물 일치 문서 우선, 불일치 문서 억제
-4. **Dedup**: 유사 문서 제거로 검색 결과 다양성 확보
-5. **PathRAG**: 인과관계 그래프 기반 3채널 검색으로 병해/재배 질의에서 관계 경로 활용
+1. **Entity-Level 검색**: 명시적 엔티티(작물명, 병해충, 환경요인) 매칭으로 정확도 향상
+2. **Community-Level 검색**: Leiden 클러스터링 기반 요약으로 광범위 질의에 효과적
+3. **Graph Traverse**: Ego-network 탐색으로 관련 엔티티 확장 → 맥락 풍부화
+4. **Domain Ontology**: 농업 도메인 온톨로지 연계로 동의어/상위개념 처리
+
+**질의 유형별 컴포넌트 효과:**
+
+| 질의 유형 | 효과적 컴포넌트 | 이유 |
+|-----------|-----------------|------|
+| Factoid | Entity-Level | 단일 엔티티 정확 매칭 |
+| Reasoning | Community-Level | 개념 요약 활용 |
+| Multi-hop | Graph Traverse | 다단계 관계 탐색 |
 
 ### 5.2.3 Domain Analysis (RQ3)
 
@@ -156,16 +188,16 @@
 
 **RQ5**: 제안 시스템의 생성 품질(Generation Quality)이 베이스라인 대비 우수한가?
 
-전통적인 IR 메트릭(MRR, NDCG 등)은 검색 품질만 측정하며, 최종 답변의 품질은 평가하지 못한다. 본 연구에서는 RAGAS(Es et al., 2024) 프레임워크를 활용하여 **Reference-free** 방식으로 생성 품질을 평가한다[38].
+전통적인 IR 메트릭(MRR, NDCG 등)은 검색 품질만 측정하며, 최종 답변의 품질은 평가하지 못한다. 본 연구에서는 RAGAS (Es et al., EACL 2024) 프레임워크를 활용하여 **Reference-free** 방식으로 생성 품질을 평가한다.
 
 **Table 5: RAGAS Evaluation Results (N=220)**
 
 | Method | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
 |--------|-------------|------------------|-------------------|----------------|
 | Dense-only | [TBD] | [TBD] | [TBD] | [TBD] |
-| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] |
-| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] |
-| **Proposed** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+| BM25 | [TBD] | [TBD] | [TBD] | [TBD] |
+| RRF | [TBD] | [TBD] | [TBD] | [TBD] |
+| **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 
 *평가 LLM: Qwen3-0.6B (로컬), 임베딩: MiniLM-L12-v2. 각 메트릭은 0-1 범위, 높을수록 좋음.*
 
@@ -179,9 +211,9 @@
 
 [실험 결과 생성 후 작성]
 
-- Faithfulness: 제안 시스템의 온톨로지 매칭이 관련 문서 검색 → 환각 감소 기대
-- Context Precision: 작물 필터링으로 무관 문서 배제 → 정밀도 향상 기대
-- Answer Relevancy: PathRAG-lite의 인과관계 탐색 → 질문 의도에 맞는 답변 기대
+- **Faithfulness**: LightRAG의 Entity-Level 검색이 정확한 근거 문서 제공 → 환각 감소 기대
+- **Context Precision**: Community-Level 요약으로 관련 정보 집중 → 정밀도 향상 기대
+- **Answer Relevancy**: Graph Traverse로 질문 의도에 맞는 관계 탐색 → 적합성 향상 기대
 
 > **실행 방법**: `python -m benchmarking.experiments.ragas_eval --qa-file QA_PATH --output OUTPUT_PATH`
 
@@ -191,9 +223,9 @@
 
 ### 5.3.1 Key Findings
 
-1. **HybridDAT 효과성**: 동적 가중치 조정이 고정 가중치 대비 [TBD]% 개선
-2. **도메인 특화**: 온톨로지 기반 매칭이 환경/영양 관련 질의에서 효과적
-3. **엣지 실용성**: 25-40x 속도 향상으로 8GB RAM 환경에서 실시간 응답 가능
+1. **LightRAG 효과성**: Dual-Level(Entity+Community) 그래프 검색이 단순 하이브리드(RRF) 대비 [TBD]% MRR 개선
+2. **도메인 특화**: 농업 온톨로지 연계로 환경/병해충 관련 질의에서 효과적
+3. **엣지 실용성**: 경량 그래프 구조로 8GB RAM 환경에서 실시간 응답 가능
 
 ### 5.3.2 Limitations
 
@@ -263,22 +295,32 @@ output/
 | Method | P@1 | P@5 | P@10 | R@5 | R@10 |
 |--------|-----|-----|------|-----|------|
 | Dense-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| Sparse-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| Naive Hybrid | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| **Proposed** | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| BM25 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| RRF | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **LightRAG** | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
 
 **Table B2: NDCG at Various K**
 
 | Method | NDCG@1 | NDCG@5 | NDCG@10 |
 |--------|--------|--------|---------|
 | Dense-only | [TBD] | [TBD] | [TBD] |
-| Sparse-only | [TBD] | [TBD] | [TBD] |
-| Naive Hybrid | [TBD] | [TBD] | [TBD] |
-| **Proposed** | [TBD] | [TBD] | [TBD] |
+| BM25 | [TBD] | [TBD] | [TBD] |
+| RRF | [TBD] | [TBD] | [TBD] |
+| **LightRAG** | [TBD] | [TBD] | [TBD] |
 
 ---
 
 ## References (Experiment Design)
+
+**핵심 참조 논문 (동료평가 출판물):**
+
+- **Es, S., et al. (2024).** RAGAS: Automated Evaluation of Retrieval Augmented Generation. *EACL 2024*.
+- **Zhu, K., et al. (2025).** RAGEval: Scenario Specific RAG Evaluation Dataset Generation Framework. *ACL 2025*.
+- **Cuconasu, F., et al. (2025).** Know Your RAG: Dataset Taxonomy and Generation Strategies for Evaluating RAG Systems. *COLING 2025*.
+- **Ying, J., et al. (2025).** SeedBench: A Multi-task Benchmark for Evaluating Large Language Models in Seed Science. *ACL 2025*.
+- **Guo, Z., et al. (2025).** LightRAG: Simple and Fast Retrieval-Augmented Generation. *EMNLP 2025 Findings*.
+
+**통계 및 평가 방법론:**
 
 - Card, D., Henderson, P., Khandelwal, U., & Jurafsky, D. (2020). With little power comes great responsibility. *EMNLP 2020*.
 - Liu, N. F., et al. (2024). Lost in the middle: How language models use long contexts. *TACL*.
