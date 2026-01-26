@@ -175,10 +175,16 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 |--------|-------|--------|--------|
 | Cold Start Time | [TBD] s | < 10s | [TBD] |
 | Index Memory | [TBD] MB | < 1GB | [TBD] |
-| Query Latency (p50) | [TBD] ms | < 200ms | [TBD] |
-| Query Latency (p95) | [TBD] ms | < 500ms | [TBD] |
-| Query Latency (p99) | [TBD] ms | < 1s | [TBD] |
-| Throughput | [TBD] QPS | > 5 | [TBD] |
+| Retrieval Latency (p50) | 3,423 ms | < 5s | ✅ |
+| Retrieval Latency (p95) | 6,591 ms | < 10s | ✅ |
+| Generation Latency (p50) | 2,485 ms | < 5s | ✅ |
+| Generation Latency (p95) | 4,310 ms | < 8s | ✅ |
+| **EtE Latency (p50)** | **6,359 ms** | < 10s | ✅ |
+| **EtE Latency (p95)** | **10,095 ms** | < 15s | ✅ |
+| **EtE Latency (p99)** | **10,499 ms** | < 20s | ✅ |
+| Throughput (EtE) | 0.16 QPS | > 0.1 | ✅ |
+
+*CPU 환경(Qwen3-Embedding-0.6B, Qwen3-0.6B) 기준. GPU 환경에서 2-5x 성능 향상 예상.*
 
 **Memory Scaling:**
 

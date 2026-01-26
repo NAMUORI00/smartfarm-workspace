@@ -76,6 +76,7 @@ Edge 환경용 스마트팜 도메인 특화 RAG 시스템
 | Document | Description |
 |----------|-------------|
 | `ERA_RAG_VALIDATION_REPORT.md` | 엣지 환경 검증 보고서 (25-40x 속도 향상 달성) |
+| `HYBRID_RETRIEVAL_ROOT_CAUSE_REPORT.md` | 하이브리드 성능 저하 원인 및 개선 보고서 |
 
 ### Deployment (`era-smartfarm-rag/deployment/`)
 
