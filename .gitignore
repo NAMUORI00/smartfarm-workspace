@@ -119,6 +119,10 @@ Thumbs.db
 *.tmp
 *.temp
 *.cache
+qa_samples*.txt
+qa_test_results*.json
+nul
+run_beir_benchmark_temp.sh
 
 # Logs
 logs/
