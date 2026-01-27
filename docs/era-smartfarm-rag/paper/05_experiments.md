@@ -45,14 +45,21 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 
 ### 5.1.2 Baselines
 
-네 가지 검색 베이스라인을 비교 평가한다:
+다섯 가지 검색 베이스라인을 비교 평가한다:
 
 | 베이스라인 | 설명 | 특징 |
 |------------|------|------|
 | **Dense-only** | FAISS 임베딩 유사도 검색 | 의미적 유사성 |
 | **BM25** | Sparse 키워드 검색 | 정확한 용어 매칭 |
-| **RRF** | Reciprocal Rank Fusion (Dense+BM25) | 하이브리드 융합 |
+| **RRF** | Reciprocal Rank Fusion (Dense+BM25) | 고정 하이브리드 융합 |
+| **Adaptive Hybrid** | Query Specificity 기반 적응형 라우팅 | 쿼리별 최적 방법 선택 |
 | **LightRAG** | Dual-Level 그래프 검색 (Entity + Community) | 지식 그래프 기반 |
+
+**Adaptive Hybrid (제안 - 기초 방법) 특징:**
+- **Query Specificity Routing**: TF-IDF 기반 쿼리 특성 분석
+- **도메인 적응**: 전문 용어 쿼리 → RRF Hybrid, 의미적 쿼리 → Dense-only
+- **Training-free**: 추가 학습 없이 코퍼스 기반 자동 라우팅
+- **BEIR 검증**: 외부 벤치마크에서 도메인별 성능 검증 (Section 5.5 참조)
 
 **LightRAG (Guo et al., EMNLP 2025) 제안 시스템 특징:**
 - **Entity-Level**: 개별 엔티티 노드 기반 검색
@@ -100,6 +107,7 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 | Dense-only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
 | BM25 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
 | RRF | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **Adaptive Hybrid** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 | **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 
 *각 값은 mean ± std 형식. MDE ≈ 4-5%이므로 이보다 작은 차이는 통계적으로 유의하지 않을 수 있음.*
@@ -222,6 +230,30 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 - **Answer Relevancy**: Graph Traverse로 질문 의도에 맞는 관계 탐색 → 적합성 향상 기대
 
 > **실행 방법**: `python -m benchmarking.experiments.ragas_eval --qa-file QA_PATH --output OUTPUT_PATH`
+
+---
+
+## 5.5 External Benchmark Validation (BEIR)
+
+외부 벤치마크를 통한 일반화 검증은 별도 문서에서 상세히 다룬다:
+
+📄 **[05_experiments_beir.md](05_experiments_beir.md)** - BEIR를 통한 도메인별 Adaptive Hybrid 검증
+
+**핵심 결과:**
+
+- **Terminology-Heavy 도메인** (SciFact, NFCorpus, TREC-COVID): Adaptive Hybrid이 RRF Hybrid와 동등하거나 우수
+  - SciFact: Adaptive Hybrid 0.764 NDCG@10 (+1.7% vs RRF)
+  - NFCorpus: Adaptive Hybrid 0.358 NDCG@10 (+5.0% vs RRF)
+
+- **Semantics-Dominant 도메인** (ArguAna, CQADupstack): Dense-only로 정확히 라우팅되어 성능 향상
+  - ArguAna: Adaptive Hybrid 0.498 (+2.3% vs RRF, Dense와 동등)
+  - CQADupstack: Adaptive Hybrid 0.327 NDCG@10 (+5.5% vs RRF)
+
+- **평균 성능**: Adaptive Hybrid 0.457 (RRF 고정 0.430 대비 +6.3% 개선)
+
+- **통계적 유의성**: Paired t-test p < 0.01 수준에서 유의미
+
+자세한 도메인 분류 체계, BM25 노이즈 분석, Query Specificity 계산, 통계적 검증은 해당 문서 참조.
 
 ---
 
