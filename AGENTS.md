@@ -1,3 +1,5 @@
+<!-- Generated: 2026-01-27 | Updated: 2026-01-27 -->
+
 # AGENTS.md - Agentic Coding Guidelines
 
 ## Repository Structure
