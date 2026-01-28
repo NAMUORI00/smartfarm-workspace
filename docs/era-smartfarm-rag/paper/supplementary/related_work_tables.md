@@ -40,7 +40,7 @@ RAG(Retrieval-Augmented Generation)는 검색과 생성을 결합하여 LLM의 �
 | Agri-LLM (Jiang) [16] | 2025 | 정밀 지식 검색 + 협업 생성 → 농업 LLM 품질 향상 | 엣지 배포 미고려 |
 
 **본 연구 대응:**
-- **LightRAG[7] 기반 그래프 검색 프레임워크 채택** → 검증된 Dual-Level 검색(엔티티+커뮤니티) 활용
+- **HybridDAT 독자 설계** → Dense-Sparse-PathRAG 3채널 융합, 농업 도메인 특화 하이브리드 시스템
 - **농업 도메인 적응**: 스마트팜 특화 엔티티 타입 6종(crop, disease, environment, practice, nutrient, stage), 농업 온톨로지 기반 엔티티 추출 가이드
 - **엣지 환경 최적화**: Q4_K_M 양자화 → 8GB RAM 엣지 디바이스에서 전체 RAG 파이프라인 배포
 - 작물별 검색 필터링 → "와사비 질문에 상추 문서" 문제 해결
@@ -59,9 +59,9 @@ Dense retrieval과 Sparse retrieval을 결합하여 검색 품질을 향상시�
 | BEIR Benchmark [3] | 2021 | 18개 데이터셋 평가 → Hybrid(키워드+의미 결합)가 Dense만보다 우수 입증 | 농업 데이터셋 미포함 → 도메인 성능 검증 안됨 |
 
 **본 연구 대응:**
-- **LightRAG의 Dual-Level 검색 활용** → 엔티티 수준(local) + 커뮤니티 수준(global) 검색 통합
-- LightRAG 그래프 구조 내 벡터 검색 → Dense-Sparse 통합을 그래프 기반으로 확장
-- 농업 도메인 수치 정보(온도, EC, pH 등) 매칭 최적화 필요 → 향후 연구 과제
+- **HybridDAT 3채널 융합** → Dense, Sparse, PathRAG 인과관계 그래프 검색을 통합
+- **DAT (Dynamic Alpha Tuning)** → 질의 특성에 따른 적응형 가중치 조정, 수치/개념 질의 최적화
+- 농업 도메인 수치 정보(온도, EC, pH 등) 매칭 최적화 → 온톨로지 매칭으로 부분 대응
 
 ---
 
@@ -90,7 +90,7 @@ Dense retrieval과 Sparse retrieval을 결합하여 검색 품질을 향상시�
 | Sitokonstantinou et al. [27] | 2024 | CO2/온도가 수확량에 미치는 영향 수치화 → 환경 요인별 기여도(sensitivity) 분석 | 수치 데이터만 분석 → 텍스트 기반 "원인-해결" 추론 못함 |
 
 **본 연구 대응:**
-- **LightRAG 자동 그래프 구축 활용** → 대규모 학습 데이터 없이 LLM 기반 엔티티/관계 자동 추출
+- **HybridGraphBuilder 자동 그래프 구축** → 규칙 기반 + LLM 기반 하이브리드 인과관계 추출
 - **농업 온톨로지 기반 엔티티 추출 가이드** → 6개 유형(crop/disease/environment/practice/nutrient/stage) 도메인 특화
 - 검색 단계에서 온톨로지 직접 매칭 → 쿼리의 작물/환경/병해 개념을 즉시 인식
 - llama.cpp 통합으로 로컬 LLM 사용 → GPU 없이 CPU만으로 실행 가능
@@ -108,8 +108,8 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 | SMMR [30] | 2025 | 샘플링 기반 MMR → 동일 품질에 로그 속도 향상(logarithmic speedup) | 작물 구분 없음 → "와사비 질문에 상추 문서" 섞여 나옴 |
 
 **본 연구 대응:**
-- **LightRAG의 ego-network 기반 효율적 그래프 탐색** → 중복 감소, 다양한 정보 제공
-- 작물별 검색 필터링: 질문 작물과 일치 시 보너스, 불일치 시 패널티 → "와사비 질문에 상추 문서" 문제 해결
+- **PathRAG 인과관계 경로 탐색** → BFS 기반 2-hop 탐색으로 관련 정보 확장, 중복 감소
+- 작물별 검색 필터링: 질문 작물과 일치 시 보너스, 불일치 시 패널티 → "와사비 질문에 상추 문서" 문제 해결 (초기 탐색 후 성능 저하로 제거)
 - 메모리 적응형 리랭커 선택 → 가용 RAM에 따라 최적 품질 제공
 
 ---
@@ -145,7 +145,7 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 - **llama.cpp Q4_K_M 양자화** → 8GB RAM 환경에서 전체 RAG 파이프라인 배포
 - **FAISS mmap 기반 인덱스 로딩** → 필요한 부분만 로드하여 대용량 인덱스도 저메모리에서 사용 가능
 - **메모리 적응형 리랭커 선택** → 가용 RAM 감지하여 리랭커 자동 선택, 자원에 맞춰 최선의 품질 제공
-- LightRAG + llama.cpp 통합 → 로컬 LLM으로 그래프 구축 및 검색 수행
+- **HybridDAT 엣지 최적화** → 로컬 LLM으로 그래프 구축 및 3채널 하이브리드 검색 수행
 - 텍스트 질문-답변 RAG 지원 → 센서/이미지만 처리하던 기존 스마트팜 엣지에 자연어 질의 기능 추가
 
 ---
@@ -154,11 +154,11 @@ RAG 시스템에서 검색된 문서들을 그대로 LLM에 전달하면 중복�
 
 | 영역 | 기존 연구 한계 | 본 연구 대응 |
 |------|---------------|-------------|
-| **Graph RAG** | LightRAG: 범용 엔티티 타입, 도메인 특화 없음 | 농업 엔티티 타입 6종(crop, disease, environment, practice, nutrient, stage), 온톨로지 통합 |
+| **Graph RAG** | LightRAG: 범용 엔티티 타입, 도메인 특화 없음 | HybridDAT: Dense+Sparse+PathRAG 3채널 융합, 농업 엔티티 타입 6종, 온톨로지 통합 |
 | **Edge Deployment** | EdgeRAG: 범용 최적화, AgroMetLLM: 특정 태스크 한정 | llama.cpp Q4_K_M + FAISS mmap + 메모리 적응형 리랭커 → 8GB RAM 타겟 |
-| **Agricultural KG** | CropDP-KG, AHR-RAG: 대규모 학습 데이터 필요 | LightRAG 자동 구축 + 경량 온톨로지 |
+| **Agricultural KG** | CropDP-KG, AHR-RAG: 대규모 학습 데이터 필요 | HybridGraphBuilder 자동 구축 + 경량 온톨로지 |
 | **Evaluation** | IR metrics: Ground Truth 의존, 고비용 어노테이션 | RAGAS reference-free + 로컬 LLM → 평가 비용 최소화 |
-| **검색 다양성** | 작물 구분 없음 → 다른 작물 문서 섞임 | 작물별 검색 필터링 → 와사비 질문엔 와사비 문서만 |
+| **검색 다양성** | 작물 구분 없음 → 다른 작물 문서 섞임 | PathRAG 인과관계 경로 탐색 + 온톨로지 매칭 |
 
 ---
 

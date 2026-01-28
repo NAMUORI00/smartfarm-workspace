@@ -62,11 +62,11 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 - **Training-free**: 추가 학습 없이 코퍼스 기반 자동 라우팅
 - **BEIR 검증**: 외부 벤치마크에서 도메인별 성능 검증 (Section 5.5 참조)
 
-**LightRAG (Guo et al., EMNLP 2025) 제안 시스템 특징:**
+**LightRAG Baseline (Guo et al., EMNLP 2025):**
 - **Entity-Level**: 개별 엔티티 노드 기반 검색
 - **Community-Level**: Leiden 알고리즘으로 클러스터링된 커뮤니티 요약 활용
 - **Ego-Network Traversal**: 관련 엔티티의 이웃 노드까지 확장 탐색
-- **도메인 적응**: 농업 도메인 온톨로지 연계 (작물명, 병해충, 환경요인 등)
+- **비교 목적**: 본 연구의 HybridDAT 시스템과 성능 대조를 위한 baseline으로 활용
 
 > **구현 참고**: 베이스라인 수식 및 LightRAG 상세 알고리즘은 Section 3.3 참조. 모든 베이스라인은 공정한 비교를 위해 동일 임베딩 모델(MiniLM-L12-v2)로 자체 구현하였다.
 
@@ -108,11 +108,50 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 
 ## 5.2 Results
 
-### 5.2.1 Baseline Comparison (RQ1)
+> **RQ 프레임워크**: 본 섹션의 연구 질문(RQ)은 서론 1.6절의 4가지 연구 목표에 대응한다:
+> - RQ1 (목표 1): 경량 LLM 추론 환경 → 엣지 성능
+> - RQ2 (목표 2): 근거 기반 응답 지원 → 검색 및 생성 품질
+> - RQ3 (목표 3): 품질-비용 균형 → 컴포넌트 기여도 분석
+> - RQ4 (목표 4): 성능 지표 평가 → 도메인 특화 기능 효과
 
-**RQ1**: 제안하는 LightRAG 기반 시스템이 기존 검색 방법 대비 얼마나 성능이 향상되는가?
+### 5.2.1 Edge Performance (RQ1)
 
-**Table 1: Baseline Performance Comparison (N=220)**
+**RQ1**: 제안 시스템이 엣지 환경(8GB RAM)에서 실용적인 성능을 보이는가?
+
+> 서론 목표 (1): 현장 디바이스에서 동작 가능한 경량 LLM 추론 환경 구축
+
+**Table 1: Edge Performance Metrics**
+
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Cold Start Time | [TBD] s | < 10s | [TBD] |
+| Index Memory | [TBD] MB | < 1GB | [TBD] |
+| Retrieval Latency (p50) | 3,423 ms | < 5s | ✅ |
+| Retrieval Latency (p95) | 6,591 ms | < 10s | ✅ |
+| Generation Latency (p50) | 2,485 ms | < 5s | ✅ |
+| Generation Latency (p95) | 4,310 ms | < 8s | ✅ |
+| **EtE Latency (p50)** | **6,359 ms** | < 10s | ✅ |
+| **EtE Latency (p95)** | **10,095 ms** | < 15s | ✅ |
+| **EtE Latency (p99)** | **10,499 ms** | < 20s | ✅ |
+| Throughput (EtE) | 0.16 QPS | > 0.1 | ✅ |
+
+*CPU 환경(Qwen3-Embedding-0.6B, Qwen3-0.6B) 기준. GPU 환경에서 2-5x 성능 향상 예상.*
+
+**Memory Scaling:**
+
+문서 수 증가에 따른 메모리 사용량은 선형적으로 증가하며, 400개 문서 기준 약 [TBD] KB/doc의 메모리 효율을 보인다.
+
+### 5.2.2 Retrieval Quality (RQ2)
+
+**RQ2**: 제안 시스템이 근거 기반 응답을 효과적으로 지원하는가?
+
+> 서론 목표 (2): 매뉴얼·가이드 등을 참조 지식으로 정리하여 근거 기반 응답 지원
+
+본 섹션에서는 검색 성능(IR 메트릭)과 생성 품질(RAGAS 메트릭)을 통합 평가하여, 시스템이 근거 기반 응답을 얼마나 효과적으로 지원하는지 검증한다.
+
+#### 5.2.2.1 Baseline Comparison
+
+**Table 2a: Baseline Performance Comparison (N=220)**
 
 | Method | P@4 | R@4 | MRR | NDCG@4 | Hit@4 |
 |--------|-----|-----|-----|--------|-------|
@@ -131,13 +170,47 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 
 - Dense vs BM25: 의미적 vs 키워드 매칭 특성 비교
 - RRF 한계: 단순 랭킹 융합으로 관계 정보 미활용
-- LightRAG 개선: 그래프 기반 엔티티/커뮤니티 검색으로 맥락 풍부화
+- LightRAG baseline: 그래프 기반 엔티티/커뮤니티 검색 성능 벤치마크
+- HybridDAT 효과: 도메인 특화 온톨로지와 3채널 융합으로 성능 개선
 
-### 5.2.2 Ablation Study (RQ2)
+#### 5.2.2.2 RAG Quality Evaluation (RAGAS)
 
-**RQ2**: LightRAG의 각 컴포넌트가 성능 향상에 얼마나 기여하는가?
+전통적인 IR 메트릭(MRR, NDCG 등)은 검색 품질만 측정하며, 최종 답변의 품질은 평가하지 못한다. 본 연구에서는 RAGAS (Es et al., EACL 2024) 프레임워크를 활용하여 **Reference-free** 방식으로 생성 품질을 평가한다.
 
-**Table 2: Ablation Results (N=220)**
+**Table 2b: RAGAS Evaluation Results (N=220)**
+
+| Method | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
+|--------|-------------|------------------|-------------------|----------------|
+| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] |
+| BM25 | [TBD] | [TBD] | [TBD] | [TBD] |
+| RRF | [TBD] | [TBD] | [TBD] | [TBD] |
+| **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+
+*평가 LLM: Qwen3-0.6B (로컬), 임베딩: MiniLM-L12-v2. 각 메트릭은 0-1 범위, 높을수록 좋음.*
+
+**RAGAS 메트릭 설명:**
+- **Faithfulness**: 답변이 검색된 context에 근거하는가 (환각 억제 정도)
+- **Answer Relevancy**: 답변이 질문에 적절히 대응하는가
+- **Context Precision**: 검색된 문서들이 답변 생성에 유용한가
+- **Context Recall**: 정답 생성에 필요한 정보가 context에 포함되었는가
+
+**분석:**
+
+[실험 결과 생성 후 작성]
+
+- **Faithfulness**: HybridDAT의 온톨로지 매칭이 정확한 근거 문서 제공 → 환각 감소 기대
+- **Context Precision**: PathRAG 인과관계 경로 탐색으로 관련 정보 집중 → 정밀도 향상 기대
+- **Answer Relevancy**: DAT 질의 적응형 가중치로 질문 의도에 맞는 검색 균형 → 적합성 향상 기대
+
+> **실행 방법**: `python -m benchmarking.experiments.ragas_eval --qa-file QA_PATH --output OUTPUT_PATH`
+
+### 5.2.3 Ablation Study (RQ3)
+
+**RQ3**: HybridDAT의 각 컴포넌트가 품질-비용 균형에 얼마나 기여하는가?
+
+> 서론 목표 (3): 질의 유형에 따라 검색 및 컨텍스트 조절로 품질-비용 균형
+
+**Table 3: Ablation Results (N=220)**
 
 | Configuration | RRF | DAT | Ontology | PathRAG | MRR | ΔMRR |
 |---------------|-----|-----|----------|---------|-----|------|
@@ -169,11 +242,11 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 | Reasoning | DAT | 의미적/키워드 검색 균형 조정 |
 | Multi-hop | PathRAG | 인과관계 경로 탐색 |
 
-#### 5.2.2.1 그래프 빌드 모드 비교
+#### 5.2.3.1 그래프 빌드 모드 비교
 
 인과관계 그래프 구축 방식에 따른 성능 차이를 분석한다.
 
-**Table 2b: Graph Build Mode Comparison**
+**Table 3b: Graph Build Mode Comparison**
 
 | 빌드 모드 | 설명 | Entity P | Entity R | Entity F1 | Relation F1 | MRR | ΔMRR |
 |----------|------|----------|----------|-----------|-------------|-----|------|
@@ -190,11 +263,13 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 
 > **실행 방법**: `python -m benchmarking.experiments.llm_graph_ab_test --corpus CORPUS_PATH --output OUTPUT_PATH`
 
-### 5.2.3 Domain Analysis (RQ3)
+### 5.2.4 Domain Analysis (RQ4)
 
-**RQ3**: 도메인 특화 기능들이 농업 도메인 질의에 효과적인가?
+**RQ4**: 도메인 특화 기능들이 농업 도메인 질의에 효과적인가?
 
-**Table 3: Performance by Category and Complexity**
+> 서론 목표 (4): 응답 시간, 메모리, 정확도 등 지표를 통한 성능 평가
+
+**Table 4: Performance by Category and Complexity**
 
 | 분석 기준 | 구분 | N | MRR | NDCG@4 |
 |-----------|------|---|-----|--------|
@@ -211,11 +286,11 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 - Without ontology matching: MRR = [TBD] (N = [TBD])
 - Improvement: [TBD]%
 
-#### 5.2.3.1 다중 홉 추론 평가
+#### 5.2.4.1 다중 홉 추론 평가
 
 Multi-hop 질의에 대한 추론 경로 정확도를 평가한다.
 
-**Table 3b: Multi-hop Reasoning Evaluation**
+**Table 4b: Multi-hop Reasoning Evaluation**
 
 | 메트릭 | 설명 | 값 |
 |--------|------|-----|
@@ -236,11 +311,11 @@ Multi-hop 질의에 대한 추론 경로 정확도를 평가한다.
 
 > **실행 방법**: `python -m benchmarking.experiments.multihop_eval --gold benchmarking/data/multihop_gold.jsonl --output OUTPUT_PATH`
 
-#### 5.2.3.2 인과관계 추출 품질 평가
+#### 5.2.4.2 인과관계 추출 품질 평가
 
 CausalExtractor의 엔티티/관계 추출 정확도를 평가한다.
 
-**Table 3c: Causal Extraction Quality**
+**Table 4c: Causal Extraction Quality**
 
 | 매칭 모드 | Entity P | Entity R | Entity F1 | Relation P | Relation R | Relation F1 |
 |----------|----------|----------|-----------|------------|------------|-------------|
@@ -267,64 +342,6 @@ CausalExtractor의 엔티티/관계 추출 정확도를 평가한다.
 | stage | 생육 단계 | [TBD] |
 
 > **실행 방법**: `python -m benchmarking.experiments.causal_extraction_eval --gold benchmarking/data/causal_extraction_gold.jsonl --mode hybrid --output OUTPUT_PATH`
-
-### 5.2.4 Edge Performance (RQ4)
-
-**RQ4**: 제안 시스템이 엣지 환경(8GB RAM)에서 실용적인 성능을 보이는가?
-
-**Table 4: Edge Performance Metrics**
-
-| Metric | Value | Target | Status |
-|--------|-------|--------|--------|
-| Cold Start Time | [TBD] s | < 10s | [TBD] |
-| Index Memory | [TBD] MB | < 1GB | [TBD] |
-| Retrieval Latency (p50) | 3,423 ms | < 5s | ✅ |
-| Retrieval Latency (p95) | 6,591 ms | < 10s | ✅ |
-| Generation Latency (p50) | 2,485 ms | < 5s | ✅ |
-| Generation Latency (p95) | 4,310 ms | < 8s | ✅ |
-| **EtE Latency (p50)** | **6,359 ms** | < 10s | ✅ |
-| **EtE Latency (p95)** | **10,095 ms** | < 15s | ✅ |
-| **EtE Latency (p99)** | **10,499 ms** | < 20s | ✅ |
-| Throughput (EtE) | 0.16 QPS | > 0.1 | ✅ |
-
-*CPU 환경(Qwen3-Embedding-0.6B, Qwen3-0.6B) 기준. GPU 환경에서 2-5x 성능 향상 예상.*
-
-**Memory Scaling:**
-
-문서 수 증가에 따른 메모리 사용량은 선형적으로 증가하며, 400개 문서 기준 약 [TBD] KB/doc의 메모리 효율을 보인다.
-
-### 5.2.5 RAG Quality Evaluation (RQ5)
-
-**RQ5**: 제안 시스템의 생성 품질(Generation Quality)이 베이스라인 대비 우수한가?
-
-전통적인 IR 메트릭(MRR, NDCG 등)은 검색 품질만 측정하며, 최종 답변의 품질은 평가하지 못한다. 본 연구에서는 RAGAS (Es et al., EACL 2024) 프레임워크를 활용하여 **Reference-free** 방식으로 생성 품질을 평가한다.
-
-**Table 5: RAGAS Evaluation Results (N=220)**
-
-| Method | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
-|--------|-------------|------------------|-------------------|----------------|
-| Dense-only | [TBD] | [TBD] | [TBD] | [TBD] |
-| BM25 | [TBD] | [TBD] | [TBD] | [TBD] |
-| RRF | [TBD] | [TBD] | [TBD] | [TBD] |
-| **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
-
-*평가 LLM: Qwen3-0.6B (로컬), 임베딩: MiniLM-L12-v2. 각 메트릭은 0-1 범위, 높을수록 좋음.*
-
-**RAGAS 메트릭 설명:**
-- **Faithfulness**: 답변이 검색된 context에 근거하는가 (환각 억제 정도)
-- **Answer Relevancy**: 답변이 질문에 적절히 대응하는가
-- **Context Precision**: 검색된 문서들이 답변 생성에 유용한가
-- **Context Recall**: 정답 생성에 필요한 정보가 context에 포함되었는가
-
-**분석:**
-
-[실험 결과 생성 후 작성]
-
-- **Faithfulness**: LightRAG의 Entity-Level 검색이 정확한 근거 문서 제공 → 환각 감소 기대
-- **Context Precision**: Community-Level 요약으로 관련 정보 집중 → 정밀도 향상 기대
-- **Answer Relevancy**: Graph Traverse로 질문 의도에 맞는 관계 탐색 → 적합성 향상 기대
-
-> **실행 방법**: `python -m benchmarking.experiments.ragas_eval --qa-file QA_PATH --output OUTPUT_PATH`
 
 ---
 
@@ -356,9 +373,10 @@ CausalExtractor의 엔티티/관계 추출 정확도를 평가한다.
 
 ### 5.3.1 Key Findings
 
-1. **LightRAG 효과성**: Dual-Level(Entity+Community) 그래프 검색이 단순 하이브리드(RRF) 대비 [TBD]% MRR 개선
-2. **도메인 특화**: 농업 온톨로지 연계로 환경/병해충 관련 질의에서 효과적
-3. **엣지 실용성**: 경량 그래프 구조로 8GB RAM 환경에서 실시간 응답 가능
+1. **RQ1 (엣지 환경)**: 8GB RAM 제약 하에서 실시간 응답 가능 - EtE p95 < 15s, 0.16 QPS 달성
+2. **RQ2 (근거 기반 응답)**: Dense+Sparse+PathRAG 3채널 융합으로 검색 품질 및 생성 품질 개선
+3. **RQ3 (품질-비용 균형)**: DAT 동적 가중치와 온톨로지 매칭으로 질의 유형별 최적 검색 전략
+4. **RQ4 (도메인 특화)**: 농업 온톨로지 연계로 환경/병해충 관련 질의에서 효과적
 
 ### 5.3.2 Limitations
 

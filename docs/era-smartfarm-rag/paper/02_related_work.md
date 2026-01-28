@@ -52,15 +52,16 @@ Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
 
 | Aspect | Prior Work | Gap | Our Approach |
 |--------|-----------|-----|--------------|
-| **Graph RAG** | LightRAG [32] | 범용 엔티티 타입, 도메인 특화 없음 | 농업 엔티티 타입(6종), 온톨로지 통합 |
-| **Edge Deployment** | EdgeRAG [24], AgroMetLLM [36] | 범용 최적화, 특정 태스크 한정 | 농업 특화 + llama.cpp + 8GB RAM 타겟 |
-| **Agricultural KG** | CropDP-KG [12], AHR-RAG [34] | 대규모 학습 데이터 필요 | LightRAG 자동 구축 + 경량 온톨로지 |
+| **Graph RAG** | LightRAG [32], PathRAG [8] | 범용 엔티티 타입, 도메인 특화 없음 | HybridDAT: Dense+Sparse+PathRAG 3채널 융합, 농업 온톨로지 통합 |
+| **Edge Deployment** | EdgeRAG [24], AgroMetLLM [36] | 범용 최적화, 특정 태스크 한정 | llama.cpp Q4_K_M + FAISS mmap, 8GB RAM 타겟 |
+| **Agricultural KG** | CropDP-KG [12], AHR-RAG [34] | 대규모 학습 데이터 필요 | HybridGraphBuilder (Rule + LLM 기반 인과관계 추출) |
 | **Evaluation** | IR metrics with Ground Truth | 고비용 어노테이션 | RAGAS reference-free + 로컬 LLM |
 
-본 연구는 LightRAG [32]의 검증된 그래프 검색 프레임워크를 기반으로, 농업 도메인 적응과 엣지 환경 최적화를 통해 연구 공백을 해결한다:
+본 연구는 기존 Graph RAG 연구(LightRAG [32], PathRAG [8])의 개념을 참고하되, **농업 도메인 특화 하이브리드 검색 시스템(HybridDAT)**을 독자적으로 설계한다:
 
-1. **LightRAG의 농업 도메인 적응**: 스마트팜 특화 엔티티 타입(crop, disease, environment, practice, nutrient, stage), 농업 온톨로지 기반 엔티티 추출 가이드, 작물별 검색 필터링
-2. **엣지 환경 최적화**: llama.cpp Q4_K_M 양자화로 8GB RAM 환경 지원, FAISS mmap 기반 인덱스 로딩, 메모리 적응형 리랭커 선택
-3. **Reference-free 평가**: RAGAS 기반 평가 파이프라인으로 Ground Truth 의존성 해소, 로컬 LLM으로 평가 비용 최소화
+1. **Dense-Sparse-Graph 3채널 융합 (HybridDATRetriever)**: RRF 기반 점수 융합과 DAT(Dynamic Alpha Tuning)를 통한 질의 적응형 가중치 조정. 농업 온톨로지 매칭으로 도메인 관련성 강화
+2. **하이브리드 그래프 구축 (HybridGraphBuilder)**: 규칙 기반 패턴 매칭과 LLM 기반 인과관계 추출(CausalExtractor)을 결합하여 농업 지식 그래프 자동 구축. 농업 엔티티 6종(crop, disease, environment, practice, nutrient, stage) 지원
+3. **엣지 환경 최적화**: llama.cpp Q4_K_M 양자화로 8GB RAM 환경 지원, FAISS mmap 기반 인덱스 로딩, 메모리 적응형 리랭커 선택
+4. **Reference-free 평가**: RAGAS 기반 평가 파이프라인으로 Ground Truth 의존성 해소, 로컬 LLM으로 평가 비용 최소화
 
-초기에 규칙 기반 동적 가중치와 패턴 기반 인과관계 그래프를 탐색하였으나, 휴리스틱 설계의 일반화 어려움으로 검증된 LightRAG 프레임워크 기반 접근으로 전환하였다. 이러한 탐색 경험은 향후 학습 기반 가중치 조정 연구의 기반이 될 수 있다.
+Baseline 비교로 LightRAG [32]와 직접 성능 비교를 수행하여 제안 시스템의 도메인 특화 효과를 검증한다. 초기에 규칙 기반 동적 가중치(Crop Filter, Semantic Dedup)를 탐색하였으나, 휴리스틱 설계의 일반화 어려움과 성능 저하로 제거하고 현재의 4-컴포넌트 구조(RRF, DAT, Ontology, PathRAG)로 정착하였다.
