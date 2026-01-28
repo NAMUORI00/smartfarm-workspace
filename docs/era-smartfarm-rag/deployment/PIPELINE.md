@@ -9,4 +9,4 @@ The pipeline consists of three main stages:
 2.  **Integration**: Combining code and assets into a unified Docker Compose environment.
 3.  **Deployment**: Deploying and running the system on the target Edge Device (Jetson/On-premise).
 
-![era-smartfarm-rag Project Pipeline](/C:/Users/yskim/.gemini/antigravity/brain/2c6132e1-a91f-42ca-ab15-4e2307c0324e/era_rag_project_pipeline_final_1768959651812.png)
+![era-smartfarm-rag Project Pipeline](../../../.image/era_refined_full_pipeline_1768368022771.png)

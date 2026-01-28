@@ -3,12 +3,13 @@
 # =============================================================================
 
 # =============================================================================
-# Python
+# Python / Packaging
 # =============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
 .Python
 build/
 develop-eggs/
@@ -27,14 +28,37 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# =============================================================================
+# Virtual Environments
+# =============================================================================
 .env
-.venv
+.env.*
+!.env.example
+.venv/
+.venv-*/
+.venv-cuda/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# =============================================================================
+# Test / Lint / Typecheck
+# =============================================================================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# =============================================================================
+# Jupyter
+# =============================================================================
+.ipynb_checkpoints/
 
 # =============================================================================
 # LaTeX Build Files
@@ -105,36 +129,44 @@ ehthumbs.db
 Thumbs.db
 
 # =============================================================================
-# Project Specific
+# Project Artifacts (Workspace root)
 # =============================================================================
-# Model files (large binaries)
+# Large model files / weights
 *.gguf
 *.bin
 *.safetensors
+*.onnx
 
-# FAISS indices
+# Vector indexes
 *.faiss
+
+# Logs / PIDs (workspace root)
+*.pid
+/nohup.out
+/logs/
+
+# Local data/outputs (workspace root only)
+/data/
+/datasets/
+/output/
 
 # Temporary files
 *.tmp
 *.temp
 *.cache
-qa_samples*.txt
-qa_test_results*.json
-nul
-run_beir_benchmark_temp.sh
+/nul
+/qa_samples*.txt
+/qa_test_results*.json
+/*_temp.sh
 
-# Logs
-logs/
-*.log
-
-# Data directories (if local)
-data/
-datasets/
+# oh-my-claudecode state
+.omc/
 
 # Secrets
 .env.local
 .env.*.local
 credentials.json
 secrets.yaml
-.icon/
+
+# Local design assets (workspace root)
+/.icon/

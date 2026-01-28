@@ -119,11 +119,12 @@ BM25 + Dense + RRF 조합은 다수 벤치에서 sparse 대비 개선됨.
 
 ```bash
 cd era-smartfarm-rag
-.venv/bin/python benchmarking/experiments/beir_benchmark.py \
+python -m benchmarking.experiments.beir_benchmark \
   --datasets scifact nfcorpus arguana scidocs \
   --embed-model BAAI/bge-base-en-v1.5 \
-  --sparse bm25 \
-  --retrieval-k 100
+  --sparse-method bm25 \
+  --retrieval-k 100 \
+  --download
 ```
 
 내부 벤치/ablation 결과 확인:
@@ -146,9 +147,70 @@ cat output/ablation_rrf/ablation_summary.json
 
 ---
 
-## 9. 결론
+## 9. PathRAG Seed Strategy 벤치마크 (2026-01-27)
 
-성능 저하의 핵심 원인은 **점수 융합 방식(min‑max + heuristic weights)**,  
-**휴리스틱 필터(crop/dedup/pathrag)**로 확인되며,  
-**BM25 + RRF 기반의 단순 하이브리드**로의 전환이 가장 안정적이다.  
+실제 QA 데이터셋(220 queries)에서 4가지 seed matching 전략을 비교한 결과:
+
+- 벤치마크: `era-smartfarm-rag/benchmarking/experiments/seed_strategy_benchmark.py`
+- 결과 파일: `era-smartfarm-rag/benchmarking/output/seed_strategy_benchmark_results.json`
+
+### 9.1 비교 결과
+
+| Strategy | Hit Rate | MRR | Precision@4 | Recall@4 |
+|----------|----------|-----|-------------|----------|
+| **ontology** | **0.0409** | **0.0253** | **0.0102** | **0.0409** |
+| keyword | 0.0227 | 0.0182 | 0.0057 | 0.0227 |
+| metadata | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| all | 0.0273 | 0.0198 | 0.0068 | 0.0273 |
+
+### 9.2 주요 관찰사항
+
+1. **전체적으로 매우 낮은 성능** (Hit Rate 4% 이하)
+   - 4가지 전략 모두 hit rate가 매우 낮아 **coverage 문제**가 심각함
+   - 220개 쿼리 중 약 9개 쿼리만 결과를 반환 (ontology 기준)
+
+2. **Ontology가 최선이나 절대 성능은 낮음**
+   - Hit Rate: 4.09% (keyword 2.27%, all 2.73% 대비 우수)
+   - MRR: 0.0253 (매우 낮음, sparse 단독 대비 90% 이상 저하)
+
+3. **Metadata 전략은 완전 실패**
+   - Hit Rate 0.0% (hardcoded crop/topic 매칭이 실제 데이터와 불일치)
+   - Wasabi 데이터의 실제 metadata 구조와 코드의 keyword mapping 불일치
+
+4. **All(전체 concept nodes) 전략도 낮은 성능**
+   - Hit Rate: 2.73% (ontology 대비 오히려 낮음)
+   - 과도한 노드 포함으로 인한 노이즈 증가 추정
+
+### 9.3 근본 원인
+
+**PathRAG 자체의 구조적 한계**:
+- **Seed matching failure**: 쿼리와 그래프 노드 간 연결이 대부분 실패
+- **Graph sparsity**: 424 nodes, 2124 edges로 구성된 그래프가 220개 쿼리를 커버하기에 부족
+- **Rule-based edges**: 인과 패턴 기반 엣지 생성이 실제 QA 의도와 불일치
+- **2-3 hop limit**: 제한된 탐색 깊이로 인해 관련 문서 도달 실패
+
+### 9.4 권고사항
+
+**PathRAG는 현재 상태로는 production 사용 불가**:
+1. Hit rate 4% 이하는 사용자 경험 측면에서 허용 불가
+2. Dense + Sparse RRF 조합이 훨씬 안정적 (BEIR 벤치 참고)
+3. PathRAG는 **실험적 feature로만 유지**, 기본 비활성 필요
+
+**개선 방향**:
+- Graph quality 개선 (더 정교한 entity extraction + relation extraction)
+- Seed matching 개선 (임베딩 기반 similarity search 추가)
+- Multi-hop reasoning 대신 direct similarity search로 변경 검토
+
+---
+
+## 10. 결론
+
+성능 저하의 핵심 원인은 **점수 융합 방식(min‑max + heuristic weights)**,
+**휴리스틱 필터(crop/dedup/pathrag)**로 확인되며,
+**BM25 + RRF 기반의 단순 하이브리드**로의 전환이 가장 안정적이다.
 Jetson 64GB 환경에서는 이 경량 구조가 성능/지연/안정성 측면에서 우선순위가 높다.
+
+**Seed Strategy 벤치마크 추가 결론**:
+PathRAG는 모든 seed strategy에서 hit rate 4% 이하의 심각한 coverage 문제를 보임.
+Graph-based retrieval은 현재 상태로는 production 사용 불가하며,
+Dense + Sparse RRF 조합이 유일한 안정적 옵션으로 확인됨.

@@ -8,15 +8,17 @@
 ## Commands
 
 ```bash
-# venv 사용 시 python 대신 .venv/bin/python 사용
-EMBED_MODEL_ID=minilm python -m benchmarking.experiments.baseline_comparison \
-  --corpus "C:/Users/yskim/Project/smartfarm-workspace-1/dataset-pipeline/output/wasabi_en_ko_parallel.jsonl" \
-  --qa-file "C:/Users/yskim/Project/smartfarm-workspace-1/dataset-pipeline/output/wasabi_qa_dataset_v2_baseline.jsonl" \
+# (권장) era-smartfarm-rag 루트에서 실행
+cd era-smartfarm-rag
+
+EMBED_MODEL_ID=minilm SPARSE_METHOD=bm25 python -m benchmarking.experiments.baseline_comparison \
+  --corpus ../dataset-pipeline/output/wasabi_en_ko_parallel.jsonl \
+  --qa-file ../dataset-pipeline/output/wasabi_qa_dataset_v2_baseline.jsonl \
   --output-dir output/baseline_rrf_v2_baseline
 
-EMBED_MODEL_ID=minilm python -m benchmarking.experiments.baseline_comparison \
-  --corpus "C:/Users/yskim/Project/smartfarm-workspace-1/dataset-pipeline/output/wasabi_en_ko_parallel.jsonl" \
-  --qa-file "C:/Users/yskim/Project/smartfarm-workspace-1/dataset-pipeline/output/wasabi_qa_dataset_v2_improved.jsonl" \
+EMBED_MODEL_ID=minilm SPARSE_METHOD=bm25 python -m benchmarking.experiments.baseline_comparison \
+  --corpus ../dataset-pipeline/output/wasabi_en_ko_parallel.jsonl \
+  --qa-file ../dataset-pipeline/output/wasabi_qa_dataset_v2_improved.jsonl \
   --output-dir output/baseline_rrf_v2_improved
 ```
 

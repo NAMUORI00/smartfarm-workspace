@@ -21,12 +21,12 @@ docs/
 │   │   │   └── related_work_tables.md # 관련 연구 상세 테이블
 │   │   ├── tables/                    # 논문용 테이블
 │   │   └── figures/                   # 논문용 그림
-│   ├── guides/                        # 실행 가이드
-│   │   └── EXPERIMENT_GUIDE.md        # 실험 실행 및 재현 가이드
 │   ├── validation/                    # 시스템 검증 보고서
-│   │   └── ERA_RAG_VALIDATION_REPORT.md
+│   │   ├── ERA_RAG_VALIDATION_REPORT.md
+│   │   ├── HYBRID_RETRIEVAL_ROOT_CAUSE_REPORT.md
+│   │   └── BENCHMARK_COMPARISON_LOG.md
 │   └── deployment/                    # 배포 가이드
-│       └── EDGE_DEPLOYMENT.md
+│       └── PIPELINE.md
 └── dataset-pipeline/                  # Dataset Pipeline 문서
     ├── dataset/                       # 데이터셋 문서
     │   ├── DATASET_CARD.md
@@ -65,24 +65,19 @@ Edge 환경용 스마트팜 도메인 특화 RAG 시스템
 | `tables/` | 논문용 테이블 (Baseline, Ablation, Edge Performance) |
 | `figures/` | 시스템 아키텍처 다이어그램 |
 
-### Guides (`era-smartfarm-rag/guides/`)
-
-| Document | Description |
-|----------|-------------|
-| `EXPERIMENT_GUIDE.md` | 실험 실행 및 재현 가이드 |
-
 ### Validation (`era-smartfarm-rag/validation/`)
 
 | Document | Description |
 |----------|-------------|
 | `ERA_RAG_VALIDATION_REPORT.md` | 엣지 환경 검증 보고서 (25-40x 속도 향상 달성) |
 | `HYBRID_RETRIEVAL_ROOT_CAUSE_REPORT.md` | 하이브리드 성능 저하 원인 및 개선 보고서 |
+| `BENCHMARK_COMPARISON_LOG.md` | 데이터셋/베이스라인 비교 로그 |
 
 ### Deployment (`era-smartfarm-rag/deployment/`)
 
 | Document | Description |
 |----------|-------------|
-| `EDGE_DEPLOYMENT.md` | 8GB RAM 엣지 디바이스 배포 가이드 |
+| `PIPELINE.md` | 프로젝트 파이프라인 및 배포 절차 |
 
 ---
 
