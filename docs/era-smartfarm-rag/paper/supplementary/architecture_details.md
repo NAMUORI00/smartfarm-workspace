@@ -12,7 +12,7 @@
 | Layer 1 Knowledge Store | `core/Api/deps.py` (인덱스 초기화) |
 | Layer 2 HybridRetriever | `core/Services/Retrieval/Hybrid.py` |
 | Layer 2 PathRAG | `core/Services/Retrieval/PathRAG.py` |
-| Layer 3 Context Shaping | `Hybrid.py` (`_deduplicate`, `_apply_crop_filter`) |
+| Layer 3 Reranking | `Hybrid.py` (reranking logic) |
 | Layer 4 Generation | `core/Services/LLM.py`, `PromptTemplates.py` |
 | Layer 5 API | `core/Api/routes_query.py` |
 | Fallback | `ResponseCache.py`, `TemplateResponder.py` |
@@ -27,9 +27,8 @@
 
 | 파라미터 | 값 | 설명 |
 |----------|-----|------|
-| `DEDUP_THRESHOLD` | 0.85 | 시맨틱 중복 판단 임계값 |
-| `CROP_MATCH_BONUS` | 0.5 | 작물 일치 시 스코어 보너스 |
-| `CROP_MISMATCH_PENALTY` | 0.85 | 작물 불일치 시 패널티 계수 |
+| `TOP_K` | 4 | 최종 검색 결과 개수 |
+| `RERANK_TOPK` | 10 | 리랭킹 대상 후보 개수 |
 
 ### 2.2 Dynamic Alpha 계산 (`dynamic_alphas`)
 
@@ -190,7 +189,7 @@ Results (Jetson Orin Nano 8GB):
 | **Pattern A: MobileRAG** | 4-7GB | EcoVector (클러스터 계층) | SCR (42%↓) | AI Edge/MLX |
 | **Pattern B: EdgeRAG** | 6-9GB | IVF + 적응형 캐시 | 없음 | llama.cpp |
 | **Pattern C: Minimal** | 2-3GB | Binary PQ + mmap | KV 양자화 | NanoLLM |
-| **ERA-SmartFarm-RAG** | 0.8-1.5GB | FAISS mmap | Semantic Dedup + Crop Filter | llama.cpp |
+| **ERA-SmartFarm-RAG** | 0.8-1.5GB | FAISS mmap | Memory-aware Reranking | llama.cpp |
 
 ---
 

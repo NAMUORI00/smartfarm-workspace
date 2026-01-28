@@ -26,7 +26,7 @@
 ┃  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  ┃
 ┃                                                          │                            ┃
 ┃  (B) Retrieval Pipeline ⭐ ──────────────────────────────┼──────────────────────────  ┃
-┃      Query Analysis → 3-Channel Search → Context Shaping                              ┃
+┃      Query Analysis → 3-Channel Search → Result Selection                              ┃
 ┃                                                          │                            ┃
 ┃  (C) Generation Pipeline ────────────────────────────────┼──────────────────────────  ┃
 ┃      Prompt Build → LLM → Response (+ Fallback Chain)                                 ┃
@@ -44,7 +44,7 @@
 | **엣지 경계 강조** | 모든 컴포넌트가 디바이스 내부에서 동작 | 두꺼운 외곽 박스 |
 | **수평 데이터 플로우** | 왼쪽→오른쪽 파이프라인 흐름 | 화살표 방향 통일 |
 | **3-Pipeline 분리** | Ingestion / Retrieval / Generation 명확 구분 | 섹션별 배경색 |
-| **핵심 기여 강조** | 3채널 검색 + Context Shaping | ⭐ 마커 + 강조 테두리 |
+| **핵심 기여 강조** | 3채널 검색 + Dynamic Alpha | ⭐ 마커 + 강조 테두리 |
 | **보조 레이어 구분** | Cache, Monitoring은 핵심 파이프라인 외부 | 점선 박스 |
 
 ---
@@ -176,9 +176,9 @@
 ┃ ║  (B) Retrieval ⭐ ──────────────────────────────────────────────────┼───────────────────  ║┃
 ┃ ║                                                                     ▼                     ║┃
 ┃ ║  ┌───────────────┐  ┌────────────────────────────────────┐  ┌─────────────────────────┐   ║┃
-┃ ║  │ Query Analysis│  │   3-Channel Hybrid Search          │  │    Context Shaping      │   ║┃
-┃ ║  │ + DAT         │─▶│ ┌──────┬──────┬────────────────┐   │─▶│ • Crop Filter           │   ║┃
-┃ ║  │               │  │ │Dense │Sparse│PathRAG         │   │  │ • Semantic Dedup        │   ║┃
+┃ ║  │ Query Analysis│  │   3-Channel Hybrid Search          │  │    Result Selection     │   ║┃
+┃ ║  │ + DAT         │─▶│ ┌──────┬──────┬────────────────┐   │─▶│ • Top-k Selection       │   ║┃
+┃ ║  │               │  │ │Dense │Sparse│PathRAG         │   │  │ • Reranking (optional)  │   ║┃
 ┃ ║  │ (PathRAG      │  │ │      │      │(conditional)   │   │  │ • Reranking (adaptive)  │   ║┃
 ┃ ║  │  activation)  │  │ └──────┴──────┴────────────────┘   │  └───────────┬─────────────┘   ║┃
 ┃ ║  └───────────────┘  │         Score Fusion               │              │                 ║┃
@@ -359,12 +359,12 @@ Text Extraction 내부:
           [Score Fusion]
 ```
 
-**Stage 3: Context Shaping ⭐**
+**Stage 3: Result Selection**
 
 | 순서 | 박스 | 동작 | 효과 |
 |------|------|------|------|
-| 1 | Crop Filter | 작물 매칭 기반 스코어 조정 | 도메인 정확도 |
-| 2 | Semantic Dedup | 유사 문서 제거 | 다양성 확보 |
+| 1 | Score Fusion | 3채널 가중치 결합 | 정확도 향상 |
+| 2 | Top-k Selection | 상위 k개 선택 (k=4) | 토큰 제한 |
 | 3 | Reranking | Memory-aware 리랭킹<br>(BGE / LLM-lite / none) | 품질 향상 |
 
 ---
@@ -446,7 +446,7 @@ Text Extraction 내부:
 | Dense 채널 | 진한 파랑 | `#BBDEFB` | 187, 222, 251 | 벡터 검색 |
 | Sparse 채널 | 연두 | `#C8E6C9` | 200, 230, 201 | 키워드 검색 |
 | PathRAG 채널 | 분홍 | `#F8BBD0` | 248, 187, 208 | 그래프 검색 |
-| Context Shaping | 노랑 | `#FFF9C4` | 255, 249, 196 | 핵심 기여 강조 |
+| Hybrid Retrieval | 노랑 | `#FFF9C4` | 255, 249, 196 | 핵심 기여 강조 |
 | Fallback | 주황 | `#FFE0B2` | 255, 224, 178 | 대체 경로 |
 
 ### 4.2 테두리 & 선 스타일
@@ -580,7 +580,7 @@ Text Extraction 내부:
 | - Dynamic Alpha | `dynamic_alphas()` |
 | - 3-Channel Search | `search()` 내부 |
 | - PathRAG | `core/Services/Retrieval/PathRAG.py` |
-| - Context Shaping | `_apply_crop_filter()`, `_deduplicate()` |
+| - Reranking | Reranking logic (optional) |
 | **Pipeline C: Generation** | `core/Api/routes_query.py` |
 | - Prompt Builder | `core/Services/PromptTemplates.py` |
 | - Custom Override | `core/Services/PromptStorage.py` |

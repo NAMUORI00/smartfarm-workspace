@@ -54,6 +54,7 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 | **RRF** | Reciprocal Rank Fusion (Dense+BM25) | 고정 하이브리드 융합 |
 | **Adaptive Hybrid** | Query Specificity 기반 적응형 라우팅 | 쿼리별 최적 방법 선택 |
 | **LightRAG** | Dual-Level 그래프 검색 (Entity + Community) | 지식 그래프 기반 |
+| **PathRAG Hybrid** | 인과관계 그래프 + 하이브리드 검색 | Dense+Sparse+Graph 3채널 융합 |
 
 **Adaptive Hybrid (제안 - 기초 방법) 특징:**
 - **Query Specificity Routing**: TF-IDF 기반 쿼리 특성 분석
@@ -90,6 +91,17 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 **엣지 성능 메트릭:**
 - Cold Start Time, Query Latency (p50/p95/p99), Memory Usage, QPS
 
+**인과관계 추출 메트릭:**
+- Entity Precision/Recall/F1: 엔티티 추출 정확도
+- Relation Precision/Recall/F1: 관계 추출 정확도
+- 매칭 모드: exact (정확 일치), canonical (ID 기반), fuzzy (유사도 기반)
+
+**다중 홉 추론 메트릭:**
+- Hop Accuracy: 개별 홉의 정확도
+- Path Exact Match: 전체 경로 일치 여부
+- Supporting Facts P/R/F1: 중간 근거 문서 평가
+- Answer EM/F1: 최종 답변 평가
+
 > **구현 상세**: 하이퍼파라미터(θ=0.85, 작물 보너스 등)는 Section 4.2 참조.
 
 ---
@@ -109,6 +121,7 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 | RRF | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
 | **Adaptive Hybrid** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 | **LightRAG** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+| **PathRAG Hybrid** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
 
 *각 값은 mean ± std 형식. MDE ≈ 4-5%이므로 이보다 작은 차이는 통계적으로 유의하지 않을 수 있음.*
 
@@ -126,31 +139,56 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 
 **Table 2: Ablation Results (N=220)**
 
-| Configuration | Entity | Community | Graph Traverse | Domain Ontology | MRR | ΔMRR |
-|---------------|--------|-----------|----------------|-----------------|-----|------|
+| Configuration | RRF | DAT | Ontology | PathRAG | MRR | ΔMRR |
+|---------------|-----|-----|----------|---------|-----|------|
 | Dense-only (Base) | - | - | - | - | [TBD] | -- |
-| +Entity | ✓ | - | - | - | [TBD] | +[TBD] |
-| +Community | - | ✓ | - | - | [TBD] | +[TBD] |
-| +Entity+Community | ✓ | ✓ | - | - | [TBD] | +[TBD] |
-| +Full Graph | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
-| **LightRAG (Full)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
+| +RRF | ✓ | - | - | - | [TBD] | +[TBD] |
+| +DAT | - | ✓ | - | - | [TBD] | +[TBD] |
+| +RRF+DAT | ✓ | ✓ | - | - | [TBD] | +[TBD] |
+| +Ontology | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
+| **HybridDAT (Full)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
 
-*Δ는 Base 대비 누적 개선. 컴포넌트 간 상호작용으로 개별 기여도 합이 전체와 불일치할 수 있음.*
+*Δ는 Base 대비 누적 개선. Crop Filter와 Dedup은 성능 저하로 제외됨.*
 
 **Key Findings:**
 
-1. **Entity-Level 검색**: 명시적 엔티티(작물명, 병해충, 환경요인) 매칭으로 정확도 향상
-2. **Community-Level 검색**: Leiden 클러스터링 기반 요약으로 광범위 질의에 효과적
-3. **Graph Traverse**: Ego-network 탐색으로 관련 엔티티 확장 → 맥락 풍부화
-4. **Domain Ontology**: 농업 도메인 온톨로지 연계로 동의어/상위개념 처리
+1. **RRF (Reciprocal Rank Fusion)**: Dense + Sparse 결과를 랭킹 기반 융합하여 안정적 성능
+2. **DAT (Dynamic Alpha Tuning)**: 질의 특성에 따른 Dense/Sparse 가중치 동적 조정
+3. **Ontology Matching**: 농업 온톨로지 개념 매칭으로 도메인 관련성 부스팅
+4. **PathRAG**: 인과관계 그래프 기반 경로 탐색으로 Multi-hop 질의 대응
+
+**Deprecated Components (성능 저하로 제외):**
+- ~~Crop Filter~~: 작물명 기반 필터링 - 오탐/미탐으로 인한 정확도 저하
+- ~~Semantic Dedup~~: 임베딩 유사도 중복 제거 - 과도한 다양성 손실
 
 **질의 유형별 컴포넌트 효과:**
 
 | 질의 유형 | 효과적 컴포넌트 | 이유 |
 |-----------|-----------------|------|
-| Factoid | Entity-Level | 단일 엔티티 정확 매칭 |
-| Reasoning | Community-Level | 개념 요약 활용 |
-| Multi-hop | Graph Traverse | 다단계 관계 탐색 |
+| Factoid | RRF + Ontology | 정확한 용어 매칭 |
+| Reasoning | DAT | 의미적/키워드 검색 균형 조정 |
+| Multi-hop | PathRAG | 인과관계 경로 탐색 |
+
+#### 5.2.2.1 그래프 빌드 모드 비교
+
+인과관계 그래프 구축 방식에 따른 성능 차이를 분석한다.
+
+**Table 2b: Graph Build Mode Comparison**
+
+| 빌드 모드 | 설명 | Entity P | Entity R | Entity F1 | Relation F1 | MRR | ΔMRR |
+|----------|------|----------|----------|-----------|-------------|-----|------|
+| rule_only | 규칙 기반 패턴 매칭 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | -- |
+| llm_only | LLM 기반 추출 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **hybrid** | 규칙 + LLM 결합 | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+
+*Entity/Relation 메트릭은 `causal_extraction_gold.jsonl` 기준 평가.*
+
+**분석:**
+- **rule_only**: 저비용, 빠른 실행, 패턴 기반 추출로 일관성 높음
+- **llm_only**: 높은 추출 품질, 추론 비용 증가, 암묵적 관계 포착 가능
+- **hybrid**: 규칙으로 명시적 관계 추출 후 LLM으로 보완 → 품질과 비용 균형
+
+> **실행 방법**: `python -m benchmarking.experiments.llm_graph_ab_test --corpus CORPUS_PATH --output OUTPUT_PATH`
 
 ### 5.2.3 Domain Analysis (RQ3)
 
@@ -172,6 +210,63 @@ RAGEval (Zhu et al., ACL 2025)의 시나리오 기반 QA 생성 방법론을 적
 - With ontology matching: MRR = [TBD] (N = [TBD])
 - Without ontology matching: MRR = [TBD] (N = [TBD])
 - Improvement: [TBD]%
+
+#### 5.2.3.1 다중 홉 추론 평가
+
+Multi-hop 질의에 대한 추론 경로 정확도를 평가한다.
+
+**Table 3b: Multi-hop Reasoning Evaluation**
+
+| 메트릭 | 설명 | 값 |
+|--------|------|-----|
+| Hop Accuracy | 개별 홉 정확도 | [TBD] |
+| Path Exact Match | 전체 경로 일치 | [TBD] |
+| Supporting Facts P | 중간 근거 정밀도 | [TBD] |
+| Supporting Facts R | 중간 근거 재현율 | [TBD] |
+| Supporting Facts F1 | 중간 근거 F1 | [TBD] |
+| Answer EM | 최종 답변 정확 일치 | [TBD] |
+| Answer F1 | 최종 답변 F1 | [TBD] |
+
+*평가 데이터: `multihop_gold.jsonl` (N = [TBD])*
+
+**메트릭 설명:**
+- **Hop Accuracy**: 각 추론 단계(홉)가 정답 경로와 일치하는 비율
+- **Path Exact Match**: 전체 추론 경로가 정답과 완전히 일치하는 비율
+- **Supporting Facts**: 답변 도출에 사용된 중간 근거 문서의 정확도
+
+> **실행 방법**: `python -m benchmarking.experiments.multihop_eval --gold benchmarking/data/multihop_gold.jsonl --output OUTPUT_PATH`
+
+#### 5.2.3.2 인과관계 추출 품질 평가
+
+CausalExtractor의 엔티티/관계 추출 정확도를 평가한다.
+
+**Table 3c: Causal Extraction Quality**
+
+| 매칭 모드 | Entity P | Entity R | Entity F1 | Relation P | Relation R | Relation F1 |
+|----------|----------|----------|-----------|------------|------------|-------------|
+| exact | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| canonical | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| fuzzy | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+
+*평가 데이터: `causal_extraction_gold.jsonl` (N = [TBD])*
+
+**매칭 모드 설명:**
+- **exact**: 정규화된 텍스트 정확 일치
+- **canonical**: canonical_id 기반 매칭 (동의어 허용)
+- **fuzzy**: 유사도 기반 매칭 (θ ≥ 0.85)
+
+**엔티티 타입별 분석:**
+
+| 엔티티 타입 | 설명 | F1 |
+|------------|------|-----|
+| crop | 작물명 | [TBD] |
+| disease | 병해충 | [TBD] |
+| environment | 환경 요인 | [TBD] |
+| practice | 재배 관리 | [TBD] |
+| nutrient | 영양/양액 | [TBD] |
+| stage | 생육 단계 | [TBD] |
+
+> **실행 방법**: `python -m benchmarking.experiments.causal_extraction_eval --gold benchmarking/data/causal_extraction_gold.jsonl --mode hybrid --output OUTPUT_PATH`
 
 ### 5.2.4 Edge Performance (RQ4)
 
@@ -305,6 +400,22 @@ python -m benchmarking.experiments.run_all_experiments \
 python -m benchmarking.reporters.PaperResultsReporter \
     --experiments-dir output/experiments \
     --output-dir output/paper
+
+# 3. 그래프 빌드 모드 비교
+python -m benchmarking.experiments.llm_graph_ab_test \
+    --corpus ../dataset-pipeline/output/wasabi_en_ko_parallel.jsonl \
+    --output-dir output/experiments/graph_ab
+
+# 4. 인과관계 추출 평가
+python -m benchmarking.experiments.causal_extraction_eval \
+    --gold benchmarking/data/causal_extraction_gold.jsonl \
+    --mode hybrid \
+    --output-dir output/experiments/causal
+
+# 5. 다중 홉 추론 평가
+python -m benchmarking.experiments.multihop_eval \
+    --gold benchmarking/data/multihop_gold.jsonl \
+    --output-dir output/experiments/multihop
 ```
 
 ### A.2 출력 파일
@@ -315,7 +426,10 @@ output/
 │   ├── baselines/baseline_summary.json
 │   ├── ablation/ablation_summary.json
 │   ├── edge/edge_benchmark_summary.json
-│   └── domain/domain_analysis_summary.json
+│   ├── domain/domain_analysis_summary.json
+│   ├── graph_ab/graph_mode_comparison.json
+│   ├── causal/extraction_metrics.json
+│   └── multihop/multihop_metrics.json
 └── paper/
     ├── table1_baseline.tex
     ├── table2_ablation.tex

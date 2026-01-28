@@ -4,7 +4,7 @@
 
 **실험 실행**:
 ```bash
-python -m benchmarking.experiments.ablation_study --corpus <corpus_path> --qa-file <qa_path>
+python -m benchmarking.experiments.RagExperimentRunner --config ablation
 ```
 
 **결과 파일**: `output/experiments/ablation/results.json`
@@ -13,25 +13,29 @@ python -m benchmarking.experiments.ablation_study --corpus <corpus_path> --qa-fi
 
 ## Component Contribution Analysis
 
-| Configuration | MRR@4 | ΔMRR | Latency (ms) |
-|---------------|-------|------|--------------|
-| Full (All components) | TBD | -- | TBD |
-| w/o Ontology Matching | TBD | TBD | TBD |
-| w/o Crop Filtering | TBD | TBD | TBD |
-| w/o Semantic Dedup | TBD | TBD | TBD |
-| w/o PathRAG | TBD | TBD | TBD |
-| w/o Dynamic Alpha | TBD | TBD | TBD |
+| Configuration | RRF | DAT | Ontology | PathRAG | MRR | ΔMRR |
+|---------------|-----|-----|----------|---------|-----|------|
+| Dense-only (Base) | - | - | - | - | [TBD] | -- |
+| +RRF | ✓ | - | - | - | [TBD] | +[TBD] |
+| +DAT | - | ✓ | - | - | [TBD] | +[TBD] |
+| +RRF+DAT | ✓ | ✓ | - | - | [TBD] | +[TBD] |
+| +Ontology | ✓ | ✓ | ✓ | - | [TBD] | +[TBD] |
+| **HybridDAT (Full)** | ✓ | ✓ | ✓ | ✓ | **[TBD]** | **+[TBD]** |
 
 ---
 
-**참고**: ΔMRR은 Full 대비 성능 변화. 음수는 성능 하락을 의미.
+**참고**: ΔMRR은 Base 대비 성능 변화. Crop Filter와 Dedup은 성능 저하로 제외됨.
 
 ---
 
 ## 컴포넌트 설명
 
-- **Ontology Matching**: 작물/환경/병해/영양소 온톨로지 기반 검색 부스팅
-- **Crop Filtering**: 질의 내 작물명 기반 문서 필터링
-- **Semantic Dedup**: 임베딩 유사도 기반 중복 제거 (θ=0.85)
-- **PathRAG**: 인과관계 그래프 기반 검색
-- **Dynamic Alpha**: 질의 특성에 따른 Dense/Sparse 가중치 동적 조정
+- **RRF (Reciprocal Rank Fusion)**: Dense + Sparse 결과를 랭킹 기반 융합
+- **DAT (Dynamic Alpha Tuning)**: 질의 특성에 따른 Dense/Sparse 가중치 동적 조정
+- **Ontology Matching**: 농업 온톨로지 개념 매칭으로 도메인 관련성 부스팅
+- **PathRAG**: 인과관계 그래프 기반 경로 탐색으로 Multi-hop 질의 대응
+
+## Deprecated Components (성능 저하로 제외)
+
+- ~~Crop Filter~~: 작물명 기반 필터링 - 오탐/미탐으로 인한 정확도 저하
+- ~~Semantic Dedup~~: 임베딩 유사도 중복 제거 - 과도한 다양성 손실

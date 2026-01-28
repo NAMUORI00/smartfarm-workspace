@@ -1,6 +1,20 @@
 # Hybrid Retrieval 성능 저하 원인 및 개선 보고서
 
-작성일: 2026-01-21  
+> ⚠️ **DEPRECATED (2026-01-28)**
+>
+> 이 보고서에서 언급된 **Crop Filter**와 **Semantic Dedup** 기능은 성능 저하 원인으로 확인되어 **코드베이스에서 완전히 삭제**되었습니다.
+>
+> 현재 HybridDATRetriever의 ablation 플래그:
+> - `HYBRID_USE_RRF` (기본: true)
+> - `HYBRID_USE_DAT` (기본: true)
+> - `HYBRID_USE_ONTOLOGY` (기본: true)
+> - `HYBRID_USE_PATHRAG` (기본: false)
+>
+> 삭제된 플래그: `HYBRID_USE_CROP_FILTER`, `HYBRID_USE_DEDUP`
+>
+> 이 보고서는 **역사적 참고용**으로만 유지됩니다.
+
+작성일: 2026-01-21
 대상: ERA SmartFarm RAG (Jetson 64GB 기준, 도메인 추가학습 없이)
 
 ---
@@ -87,8 +101,12 @@
 - `HYBRID_USE_DAT=true`
 - `HYBRID_USE_ONTOLOGY=true`
 - `HYBRID_USE_PATHRAG=false`
-- `HYBRID_USE_CROP_FILTER=false`
-- `HYBRID_USE_DEDUP=false`
+
+**삭제된 설정 (코드베이스에서 제거됨)**:
+- ~~`HYBRID_USE_CROP_FILTER=false`~~ (2026-01-28 삭제)
+- ~~`HYBRID_USE_DEDUP=false`~~ (2026-01-28 삭제)
+
+이 두 플래그는 성능 저하 원인으로 확인되어 HybridDATRetriever에서 완전히 제거되었습니다.
 
 ---
 
