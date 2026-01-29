@@ -1,0 +1,386 @@
+\section{Architecture Details}
+\label{app:architecture}
+
+본 부록에서는 ERA-SmartFarm-RAG 시스템의 상세 기술 사양, 구현 세부사항, 최신 연구 동향을 정리한다.
+
+\subsection{코드와 Figure 매핑}
+
+\begin{table}[H]
+\centering
+\caption{아키텍처 Figure 요소와 소스 코드 매핑}
+\label{tab:code-figure-mapping}
+\begin{tabular}{ll}
+\toprule
+\textbf{Figure 요소} & \textbf{소스 코드 위치} \\
+\midrule
+Layer 0 Runtime & \texttt{core/Config/Settings.py} \\
+Layer 1 Knowledge Store & \texttt{core/Api/deps.py} (인덱스 초기화) \\
+Layer 2 HybridRetriever & \texttt{core/Services/Retrieval/Hybrid.py} \\
+Layer 2 PathRAG & \texttt{core/Services/Retrieval/PathRAG.py} \\
+Layer 3 Reranking & \texttt{Hybrid.py} (reranking logic) \\
+Layer 4 Generation & \texttt{core/Services/LLM.py}, \texttt{PromptTemplates.py} \\
+Layer 5 API & \texttt{core/Api/routes\_query.py} \\
+Fallback & \texttt{ResponseCache.py}, \texttt{TemplateResponder.py} \\
+Graph Building & \texttt{core/Services/Ingest/GraphBuilder.py} \\
+Ontology & \texttt{core/Services/Ontology.py} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{HybridDATRetriever 구현 상세}
+
+\subsubsection{주요 파라미터}
+
+\begin{table}[H]
+\centering
+\caption{HybridDATRetriever 파라미터 설정}
+\label{tab:hybrid-dat-params-appendix}
+\begin{tabular}{lrl}
+\toprule
+\textbf{파라미터} & \textbf{값} & \textbf{설명} \\
+\midrule
+\texttt{TOP\_K} & 4 & 최종 검색 결과 개수 \\
+\texttt{RERANK\_TOPK} & 10 & 리랭킹 대상 후보 개수 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Dynamic Alpha 계산}
+
+\texttt{dynamic\_alphas} 함수는 온톨로지 매칭 결과와 수치/단위 패턴을 분석하여 3채널 가중치를 반환한다. LLM 호출 없이 규칙 기반으로 동작하여 엣지 환경에 최적화되어 있다.
+
+\subsection{PathRAG-lite 구현 상세}
+
+\subsubsection{그래프 구조}
+
+PathRAG-lite는 다음과 같은 지식 그래프 구조를 사용한다:
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+                  SmartFarm Knowledge Graph
+                            │
+       ┌────────────────────┼────────────────────┐
+       │                    │                    │
+       ▼                    ▼                    ▼
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│ Concept Node│      │Practice Node│      │  Edge Types │
+│             │      │ (Document)  │      │             │
+│ crop:와사비  │ rec  │ chunk_001   │ caus │ recommended │
+│ env:온도     │◄────►│ chunk_002   │◄────►│ associated  │
+│ disease:연부병│ for │ chunk_003   │ solv │ mentions    │
+│ nutrient:양액│      │             │      │ causes      │
+│ stage:생육   │      │ metadata:   │      │ solved_by   │
+│ practice:차광│ ass  │ causal_role:│      │             │
+│             │◄────►│ cause/effect│      │             │
+└─────────────┘      │ /solution   │      └─────────────┘
+                     └─────────────┘
+\end{verbatim}
+\caption{PathRAG 지식 그래프 구조}
+\label{fig:pathrag-graph}
+\end{figure}
+
+\subsubsection{탐색 전략}
+
+\begin{itemize}
+\item 시작점: 쿼리에서 매칭된 온톨로지 개념 노드
+\item 최대 깊이: 2-hop (기본값)
+\item 인과관계 엣지(\texttt{causes}, \texttt{solved\_by}) 우선 탐색
+\end{itemize}
+
+\subsection{메모리 적응형 리랭킹 상세}
+
+\subsubsection{설정 파라미터}
+
+\begin{itemize}
+\item \texttt{AUTO\_RERANK\_MIN\_RAM\_GB}: 0.8
+\item \texttt{AUTO\_BGE\_MIN\_RAM\_GB}: 1.5
+\item \texttt{AUTO\_BGE\_MIN\_VRAM\_GB}: 1.5 (GPU 사용 시)
+\end{itemize}
+
+\subsubsection{Reranker 선택 로직}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+┌───────────────────────────────────────────────┐
+│        Runtime Memory Check                   │
+│                                               │
+│   RAM = _available_ram_gb()                   │
+│   VRAM = _available_vram_gb()                 │
+└────────────┬──────────────────────────────────┘
+             │
+    ┌────────┼────────┐
+    │        │        │
+    ▼        ▼        ▼
+┌────────┐ ┌────────┐ ┌────────┐
+│RAM<0.8 │ │0.8≤RAM │ │RAM≥1.5 │
+│  GB    │ │ <1.5GB │ │  GB    │
+└───┬────┘ └───┬────┘ └───┬────┘
+    │          │          │
+    ▼          ▼          ▼
+┌────────┐ ┌────────┐ ┌────────┐
+│  none  │ │LLM-lite│ │  BGE   │
+│        │ │llama   │ │BAAI/bge│
+│ (skip) │ │rerank  │ │reranker│
+│        │ │(~0MB)  │ │(~500MB)│
+└────────┘ └────────┘ └────────┘
+\end{verbatim}
+\caption{메모리 적응형 Reranker 선택 로직}
+\label{fig:reranker-selection}
+\end{figure}
+
+\subsection{인덱스 영속화}
+
+오프라인 환경 지원을 위해 인덱스를 파일로 저장/로드한다.
+
+\begin{table}[H]
+\centering
+\caption{인덱스 파일 구조}
+\label{tab:index-persistence}
+\begin{tabular}{lll}
+\toprule
+\textbf{파일} & \textbf{내용} & \textbf{형식} \\
+\midrule
+\texttt{dense.faiss} & 문서 임베딩 벡터 인덱스 & Binary (mmap 가능) \\
+\texttt{dense\_docs.jsonl} & 문서 텍스트 및 메타데이터 & JSON Lines \\
+\texttt{sparse.pkl} & TF-IDF 키워드 빈도 행렬 & Pickle \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{최신 Edge RAG 아키텍처 패턴 (2024-2025)}
+
+\subsubsection{MobileRAG 아키텍처 (Park et al., 2025)}
+
+MobileRAG는 EcoVector + SCR (Selective Content Reduction) 기반 2단계 인덱싱을 사용한다.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+┌─────────────────────────────────────────────┐
+│      EcoVector 2-Layer Indexing             │
+├─────────────────────────────────────────────┤
+│                                             │
+│ Level 1: Centroids Graph (RAM-resident)     │
+│ ├─ k-means clustering of entire corpus      │
+│ ├─ HNSW graph built on centroids            │
+│ └─ Always in memory for query routing       │
+│                                             │
+│ Level 2: Inverted Lists Graph (Disk-based)  │
+│ ├─ Independent HNSW graph per cluster       │
+│ ├─ Stored on flash storage                  │
+│ └─ Loaded on-demand, unloaded after search  │
+└─────────────────────────────────────────────┘
+
+Search Flow:
+Query → Embed → Centroids Graph (RAM)
+              → Identify n_P centroids
+              → Load n_P cluster graphs from disk
+              → Search → Unload → Return top-k
+\end{verbatim}
+\caption{MobileRAG EcoVector 2단계 인덱싱 구조}
+\label{fig:mobileerag-ecovector}
+\end{figure}
+
+SCR (토큰 절감) 알고리즘:
+\begin{itemize}
+\item Retrieved Docs → Sentence Split → Sliding Window (3-5 sentences)
+\item Query Similarity Scoring → Select Top Windows → Merge
+\item Token Reduction: 평균 42\% 감소
+\end{itemize}
+
+\subsubsection{EdgeRAG 아키텍처 (Seemakhupt et al., 2024)}
+
+EdgeRAG는 온라인 인덱싱과 적응형 캐싱을 사용한다.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+┌─────────────────────────────────────────────┐
+│   EdgeRAG: Compute vs Data Tradeoff        │
+├─────────────────────────────────────────────┤
+│                                             │
+│ Level 1: IVF Centroids (Always in RAM)     │
+│ └─ Query routing to cluster                │
+│                                             │
+│ Level 2: Cluster Embeddings (Selective)    │
+│ ├─ Heavy clusters: Pre-computed & stored   │
+│ ├─ Light clusters: Generate on-demand      │
+│ └─ Adaptive cache: Cost-aware LFU          │
+│                                             │
+│ Cache Policy:                              │
+│ evict_score = gen_latency × access_count   │
+│ → Keep expensive, frequently-accessed      │
+└─────────────────────────────────────────────┘
+
+Results (Jetson Orin Nano 8GB):
+- TTFT: 1.8× faster vs baseline IVF
+- Datasets >8GB fit without thrashing
+\end{verbatim}
+\caption{EdgeRAG 적응형 캐싱 구조}
+\label{fig:edgerag-adaptive}
+\end{figure}
+
+\subsubsection{Edge RAG 아키텍처 패턴 비교}
+
+\begin{table}[H]
+\centering
+\caption{Edge RAG 아키텍처 패턴 비교}
+\label{tab:edge-rag-patterns}
+\begin{tabular}{lllll}
+\toprule
+\textbf{패턴} & \textbf{RAM} & \textbf{인덱스 전략} & \textbf{토큰} & \textbf{런타임} \\
+\midrule
+MobileRAG & 4-7GB & EcoVector (클러스터 계층) & SCR (42\%↓) & AI Edge/MLX \\
+EdgeRAG & 6-9GB & IVF + 적응형 캐시 & 없음 & llama.cpp \\
+Minimal & 2-3GB & Binary PQ + mmap & KV 양자화 & NanoLLM \\
+ERA-SmartFarm-RAG & 0.8-1.5GB & FAISS mmap & 메모리 적응형 & llama.cpp \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{양자화 전략 상세}
+
+\subsubsection{llama.cpp GGUF 양자화 수준}
+
+\begin{table}[H]
+\centering
+\caption{llama.cpp GGUF 양자화 수준 비교}
+\label{tab:gguf-quantization}
+\begin{tabular}{lllll}
+\toprule
+\textbf{양자화} & \textbf{크기 (7B)} & \textbf{품질} & \textbf{속도} & \textbf{권장 환경} \\
+\midrule
+Q8\_0 & $\sim$7.5GB & Near FP16 & 1.0× & 서버 \\
+\textbf{Q4\_K\_M} & $\sim$4.5GB & Good & 1.5× & \textbf{8GB RAM 엣지 (권장)} \\
+IQ3\_M & $\sim$3.5GB & Moderate & 2.0× & 4GB RAM 엣지 \\
+IQ2\_M & $\sim$2.5GB & Degraded & 2.5× & 극저사양 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{KV 캐시 메모리 최적화}
+
+\begin{verbatim}
+7B Q4_K_M 메모리 분해:
+├─ 모델 가중치: ~4.5GB
+├─ KV 캐시 (ctx=8192): ~2.8GB  ← 주요 병목!
+├─ 활성화: ~1.0GB
+└─ 런타임 오버헤드: ~0.3GB
+────────────────────────────────
+총계: ~8.6GB
+
+최적화: ctx=4096으로 줄이면 → ~6.0GB (KV 캐시 절반)
+\end{verbatim}
+
+\subsubsection{최신 KV 캐시 양자화 기법}
+
+\begin{itemize}
+\item \textbf{AQUA-KV} (arXiv:2501.19392): 2-2.5비트에서 near-lossless
+\item \textbf{KeyDiff} (arXiv:2504.15364): 키 유사도 기반 KV eviction
+\end{itemize}
+
+\subsection{FAISS 메모리 최적화 기법}
+
+\subsubsection{Product Quantization (PQ) - 고압축}
+
+\begin{verbatim}
+원본 벡터 (768 dims, FP16): 1536 bytes
+       ↓
+PQ 압축 (m=12, code_size=8): 12 bytes
+       ↓
+압축률: 128×
+
+메모리 추정 (1M 벡터, 768 dims):
+~12MB (벡터) + ~98MB (코드북) + ~8MB (ID) = ~118MB
+\end{verbatim}
+
+\subsubsection{FastScan (4-bit PQ)}
+
+\begin{itemize}
+\item HNSW 대비 2.7× 메모리 절감 (그래프 오버헤드 없음)
+\item 64 bytes/vector 목표
+\item SIMD 가속 CPU 커널
+\end{itemize}
+
+\subsubsection{ERA-SmartFarm-RAG 적용}
+
+현재는 FAISS mmap + IndexFlatIP (정확도 우선)를 사용하며, PQ 적용 시 메모리 100× 절감 가능하나 Recall trade-off가 발생한다.
+
+\subsection{전체 시스템 컴포넌트 맵}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+┌─────────────────────────────────────────────┐
+│              Frontend                       │
+│   Streamlit App (frontend/streamlit/)       │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────┐
+│           FastAPI Backend                   │
+│ ┌─────────────────────────────────────────┐ │
+│ │         API Routes                      │ │
+│ │ routes_query.py  routes_ingest.py       │ │
+│ │ routes_monitoring.py                    │ │
+│ └─────────────────────────────────────────┘ │
+│ deps.py (전역 리트리버 초기화)               │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────┐
+│           Core Services                     │
+│ ┌─────────────────────────────────────────┐ │
+│ │          Retrieval/                     │ │
+│ │ Hybrid.py  Embeddings.py  Sparse.py     │ │
+│ │ PathRAG.py                              │ │
+│ └─────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────┐ │
+│ │           Ingest/                       │ │
+│ │ GraphBuilder.py  Chunking.py            │ │
+│ │ OCREngine.py                            │ │
+│ └─────────────────────────────────────────┘ │
+│ LLM.py  Ontology.py  ResponseCache.py       │
+│ TemplateResponder.py                        │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────┐
+│           Data Storage                      │
+│ data/index/      data/cache/                │
+│ dense.faiss      responses.jsonl            │
+│ sparse.pkl       data/ontology/             │
+│                  wasabi_ontology.json       │
+└─────────────────────────────────────────────┘
+\end{verbatim}
+\caption{ERA-SmartFarm-RAG 시스템 컴포넌트 구조}
+\label{fig:system-components}
+\end{figure}
+
+\subsection{참고 문헌 (최신 연구)}
+
+\subsubsection{핵심 논문}
+
+\begin{itemize}
+\item \textbf{MobileRAG}: Park, T., Lee, G., Kim, M.-S. (2025). "MobileRAG: A Fast, Memory-Efficient, and Energy-Efficient Method for On-Device RAG." \url{https://arxiv.org/abs/2507.01079}
+\item \textbf{EdgeRAG}: Seemakhupt, K., Liu, S., Khan, S. (2024). "EdgeRAG: Online-Indexed RAG for Edge Devices." \url{https://arxiv.org/abs/2412.21023}
+\item \textbf{PathRAG}: Chen, B., et al. (2025). "PathRAG: Pruning Graph-based RAG with Relational Paths." \url{https://arxiv.org/abs/2502.14902}
+\end{itemize}
+
+\subsubsection{시스템/런타임}
+
+\begin{itemize}
+\item \textbf{llama.cpp}: Gerganov, G. (2024). \url{https://github.com/ggml-org/llama.cpp}
+\item \textbf{FAISS}: Johnson, J., et al. (2019). "Billion-scale similarity search with GPUs." \url{https://arxiv.org/abs/1702.08734}
+\end{itemize}
+
+\subsubsection{양자화/최적화}
+
+\begin{itemize}
+\item \textbf{AQUA-KV}: Shutova, A., et al. (2025). "Cache Me If You Must: Adaptive Key-Value Quantization." \url{https://arxiv.org/abs/2501.19392}
+\item \textbf{KeyDiff}: Park, J., et al. (2025). "KeyDiff: Key Similarity-Based KV Cache Eviction." \url{https://arxiv.org/abs/2504.15364}
+\item \textbf{UniQL}: Wang, Y., et al. (2025). "UniQL: Unified Quantization and Low-Rank Compression." \url{https://arxiv.org/abs/2512.03383}
+\item \textbf{FlexQuant}: Chen, X., et al. (2025). "FlexQuant: Elastic Quantization for Edge Devices." \url{https://arxiv.org/abs/2501.07139}
+\end{itemize}
