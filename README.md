@@ -39,8 +39,11 @@
 
 | 폴더 | 설명 | 저장소 |
 |------|------|--------|
-| `era-smartfarm-rag/` | RAG 서버 (엣지 환경용 Qwen3 + llama.cpp) | [era-smartfarm-rag-qwen3-edge](https://github.com/NAMUORI00/era-smartfarm-rag-qwen3-edge) |
-| `dataset-pipeline/` | LLM-as-a-Judge 데이터셋 생성 파이프라인 | [smartfarm-dataset-pipeline](https://github.com/NAMUORI00/smartfarm-dataset-pipeline) |
+| `smartfarm-search/` | 검색/RAG API 서버 (엣지 환경용) | [smartfarm-search](https://github.com/NAMUORI00/smartfarm-search) |
+| `smartfarm-ingest/` | 데이터 인게스트/오프라인 인덱싱 + Dataset pipeline | [smartfarm-ingest](https://github.com/NAMUORI00/smartfarm-ingest) |
+| `smartfarm-benchmarking/` | 벤치마크/실험 코드 | [smartfarm-benchmarking](https://github.com/NAMUORI00/smartfarm-benchmarking) |
+| `smartfarm-llm-inference/` | LLM 추론(gguf/llama.cpp) 서비스 | [smartfarm-llm-inference](https://github.com/NAMUORI00/smartfarm-llm-inference) |
+| `smartfarm-frontend/` | Streamlit 프론트엔드 UI | [smartfarm-frontend](https://github.com/NAMUORI00/smartfarm-frontend) |
 | `docs/` | 통합 문서 (논문, 검증 보고서, 데이터셋 카드) | - |
 
 ---
@@ -62,20 +65,21 @@ git submodule update --init --recursive
 ### RAG 서버 실행
 
 ```bash
-cd era-smartfarm-rag
+cd smartfarm-search
 python setup.py --mode local    # 의존성 설치 + GGUF 모델 다운로드
 make build && make up           # Docker 빌드 및 실행
 ```
 
 개발 모드 (Docker 없이):
 ```bash
+cd smartfarm-search
 uvicorn core.main:app --port 41177 --reload
 ```
 
 ### Dataset Pipeline 실행
 
 ```bash
-cd dataset-pipeline
+cd smartfarm-ingest
 pip install -r requirements.txt
 pip install -e ".[dev]"
 python tests/test_pipeline.py   # Smoke test
@@ -104,13 +108,13 @@ python tests/test_pipeline.py   # Smoke test
 
 ```bash
 # 1. 각 서브모듈에서 작업 및 커밋
-cd era-smartfarm-rag
+cd smartfarm-search
 git add . && git commit -m "Update" && git push
 
 # 2. 워크스페이스에서 서브모듈 참조 업데이트
 cd ..
-git add era-smartfarm-rag
-git commit -m "chore: bump era-smartfarm-rag submodule"
+git add smartfarm-search
+git commit -m "chore: bump smartfarm-search submodule"
 git push
 ```
 
@@ -128,10 +132,19 @@ git submodule update --remote --merge
 
 ```bash
 # RAG 서버만
-git clone https://github.com/NAMUORI00/era-smartfarm-rag-qwen3-edge.git
+git clone https://github.com/NAMUORI00/smartfarm-search.git
 
-# Dataset 파이프라인만
-git clone https://github.com/NAMUORI00/smartfarm-dataset-pipeline.git
+# Ingest/Dataset 파이프라인만
+git clone https://github.com/NAMUORI00/smartfarm-ingest.git
+
+# LLM 추론만
+git clone https://github.com/NAMUORI00/smartfarm-llm-inference.git
+
+# Frontend만
+git clone https://github.com/NAMUORI00/smartfarm-frontend.git
+
+# Benchmarking만
+git clone https://github.com/NAMUORI00/smartfarm-benchmarking.git
 ```
 
 ---

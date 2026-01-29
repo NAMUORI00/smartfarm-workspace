@@ -1,6 +1,15 @@
-[submodule "era-smartfarm-rag"]
-	path = era-smartfarm-rag
-	url = https://github.com/NAMUORI00/era-smartfarm-rag-qwen3-edge.git
-[submodule "dataset-pipeline"]
-	path = dataset-pipeline
-	url = https://github.com/NAMUORI00/smartfarm-dataset-pipeline.git
+[submodule "smartfarm-search"]
+	path = smartfarm-search
+	url = https://github.com/NAMUORI00/smartfarm-search.git
+[submodule "smartfarm-ingest"]
+	path = smartfarm-ingest
+	url = https://github.com/NAMUORI00/smartfarm-ingest.git
+[submodule "smartfarm-benchmarking"]
+	path = smartfarm-benchmarking
+	url = https://github.com/NAMUORI00/smartfarm-benchmarking.git
+[submodule "smartfarm-llm-inference"]
+	path = smartfarm-llm-inference
+	url = https://github.com/NAMUORI00/smartfarm-llm-inference.git
+[submodule "smartfarm-frontend"]
+	path = smartfarm-frontend
+	url = https://github.com/NAMUORI00/smartfarm-frontend.git
