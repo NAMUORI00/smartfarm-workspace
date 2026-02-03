@@ -104,6 +104,8 @@ services:
     volumes:
       - ./smartfarm-search/data:/app/data
       - ./smartfarm-search/.cache:/root/.cache
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   # ==============================================================================
