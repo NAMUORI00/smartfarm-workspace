@@ -49,3 +49,9 @@
 [24] Niu, Y., et al. (2024). "RAGChecker: A Fine-grained Framework for Diagnosing Retrieval-Augmented Generation." *arXiv:2408.08067*. ([링크](https://arxiv.org/abs/2408.08067))
 
 [25] Yang, X., Sun, K., Xin, H., Sun, Y., Bhalla, N., Chen, X., et al. (2024). "CRAG -- Comprehensive RAG Benchmark." *arXiv:2406.04744*. ([링크](https://arxiv.org/abs/2406.04744))
+
+[26] Page, L., Brin, S., Motwani, R., & Winograd, T. (1999). "The PageRank Citation Ranking: Bringing Order to the Web." *Technical Report*. ([링크](http://ilpubs.stanford.edu:8090/422/))
+
+[27] Robertson, S., & Zaragoza, H. (2009). "The Probabilistic Relevance Framework: BM25 and Beyond." *Foundations and Trends in Information Retrieval*, 3(4), 333–389. ([링크](https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf))
+
+[28] Johnson, J., Douze, M., & Jégou, H. (2017). "Billion-scale similarity search with GPUs." *arXiv:1702.08734*. ([링크](https://arxiv.org/abs/1702.08734))
