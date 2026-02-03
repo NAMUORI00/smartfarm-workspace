@@ -1,0 +1,136 @@
+services:
+  # ==============================================================================
+  # Research / Benchmarking add-on compose
+  #
+  # Use together with the service stack:
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml up -d
+  #
+  # Optional one-shot utilities (recommended):
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile research run --rm indexer-v2
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile smoke run --rm smoke
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile benchmark run --rm benchmark
+  #
+  # Note:
+  #   - Services here are behind profiles to avoid extra containers by default.
+  #   - Indexing is LLM-free (Tri-Graph v2), so we no longer run a separate llama-index container.
+  # ==============================================================================
+
+  # ==============================================================================
+  # Tri-Graph v2 index build (offline, LLM-free)
+  #
+  # Builds Dense(FAISS) + Sparse(BM25) + Tri-Graph artifacts from a corpus JSONL.
+  # Runs once (idempotent; skips if artifacts already exist).
+  # ==============================================================================
+  indexer-v2:
+    build:
+      context: ./smartfarm-search
+      dockerfile: Dockerfile
+    image: smartfarm-rag-api:latest
+    profiles: ["research", "benchmark", "smoke"]
+    container_name: smartfarm-indexer-v2
+    environment:
+      - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
+      - TRIGRAPH_REBUILD=${TRIGRAPH_REBUILD:-0}
+      - TRIGRAPH_INDEX_LIMIT=${TRIGRAPH_INDEX_LIMIT:-400}
+      - TRIGRAPH_LANG=${TRIGRAPH_LANG:-ko}
+      - TRIGRAPH_INPUT_JSONL=${TRIGRAPH_INPUT_JSONL:-/workspace/smartfarm-ingest/output/wasabi_en_ko_parallel.jsonl}
+    volumes:
+      - ./smartfarm-search:/workspace/smartfarm-search
+      - ./smartfarm-ingest:/workspace/smartfarm-ingest
+      - ./smartfarm-search/.cache:/root/.cache
+    working_dir: /workspace
+    healthcheck:
+      disable: true
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        set -eu
+        OUT_DIR="/workspace/smartfarm-search/data/index/trigraph_edge"
+        META="$${OUT_DIR}/meta.json"
+        if [ "$${TRIGRAPH_REBUILD}" != "1" ] && [ -f "$${META}" ]; then
+          echo "[index] Tri-Graph artifacts already exist: $${META} (skip; set TRIGRAPH_REBUILD=1 to rebuild)"
+          exit 0
+        fi
+
+        INPUT="$${TRIGRAPH_INPUT_JSONL}"
+        if [ ! -f "$${INPUT}" ]; then
+          echo "[index][WARN] input not found: $${INPUT} -> falling back to agriqa corpus"
+          INPUT="/workspace/smartfarm-search/data/agriqa/corpus.jsonl"
+        fi
+
+        python /workspace/smartfarm-ingest/scripts/indexing/build_trigraph_index_v2.py \
+          --input-jsonl "$${INPUT}" \
+          --lang "$${TRIGRAPH_LANG}" \
+          --embed-model-id "$${EMBED_MODEL_ID}" \
+          --limit "$${TRIGRAPH_INDEX_LIMIT}"
+    restart: "no"
+
+  # ==============================================================================
+  # Benchmark runner (smartfarm-benchmarking) - runs once
+  #
+  # Example:
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml run --rm benchmark
+  # ==============================================================================
+  benchmark:
+    build:
+      context: ./smartfarm-benchmarking
+      dockerfile: benchmarking/docker/Dockerfile
+    image: era-benchmark:latest
+    profiles: ["benchmark"]
+    container_name: smartfarm-benchmark
+    # NOTE: unified run_benchmark.py is currently not aligned with experiments modules.
+    # Compose benchmark uses a stable end-to-end /query batch evaluator instead.
+    entrypoint: ["python", "-m", "benchmarking.experiments.batch_eval_rag"]
+    command:
+      - --host
+      - http://api:41177
+      - --input
+      - /data/wasabi_qa_dataset.jsonl
+      - --ranker
+      - none
+      - --top_k
+      - "4"
+      - --limit
+      - ${BENCHMARK_LIMIT:-20}
+      - --output
+      - /app/output/batch_eval_results.json
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./output:/app/output
+      - ./smartfarm-ingest/output:/data:ro
+    working_dir: /app
+    depends_on:
+      api:
+        condition: service_healthy
+      indexer-v2:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # ==============================================================================
+  # End-to-end smoke test (runs once)
+  #
+  # Example:
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile smoke run --rm smoke
+  # ==============================================================================
+  smoke:
+    build:
+      context: ./smartfarm-search
+      dockerfile: Dockerfile
+    image: smartfarm-rag-api:latest
+    profiles: ["smoke"]
+    container_name: smartfarm-smoke
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+      llama:
+        condition: service_healthy
+      indexer-v2:
+        condition: service_completed_successfully
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["python", "/scripts/smoke_stack.py"]
+    command: ["--require-llm", "--require-trigraph", "--timeout", "240"]
+    restart: "no"

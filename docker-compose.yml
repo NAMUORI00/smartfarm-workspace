@@ -1,0 +1,103 @@
+services:
+  # ==============================================================================
+  # LLM Inference (llama.cpp)
+  # Base compose uses CPU image for portability.
+  # For GPU, run with:
+  #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+  # ==============================================================================
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: smartfarm-llama
+    command:
+      - --model
+      - ${LLAMA_MODEL_PATH:-/models/Qwen3-4B-Q4_K_M.gguf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CTX_SIZE:-8192}
+      - --parallel
+      - ${LLAMA_PARALLEL:-1}
+      - --cont-batching
+    ports:
+      - "${LLAMA_HOST_PORT:-45857}:8080"
+    volumes:
+      # Default: use models prepared by `smartfarm-search/setup.py`
+      - ${LLAMA_MODELS_DIR:-./smartfarm-search/models}:/models
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # ==============================================================================
+  # RAG API (smartfarm-search)
+  # ==============================================================================
+  api:
+    build:
+      context: ./smartfarm-search
+      dockerfile: Dockerfile
+    image: smartfarm-rag-api:latest
+    container_name: smartfarm-rag-api
+    ports:
+      - "41177:41177"
+    environment:
+      - PORT=41177
+      - LLMLITE_HOST=${LLMLITE_HOST:-http://llama:8080}
+      - LLMLITE_TIMEOUT=${LLMLITE_TIMEOUT:-300}
+      - LLMLITE_MAX_TOKENS=${LLMLITE_MAX_TOKENS:-256}
+
+      # Retrieval defaults (edge-friendly)
+      - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
+      - SPARSE_METHOD=${SPARSE_METHOD:-bm25}
+      - ENABLE_CACHE=${ENABLE_CACHE:-true}
+      - RERANKER_DEFAULT=${RERANKER_DEFAULT:-none}
+
+      # Tri-Graph RAG (LinearRAG-inspired; clean-room implementation, LLM-free indexing)
+      - TRIGRAPH_ENABLED=${TRIGRAPH_ENABLED:-true}
+      - TRIGRAPH_INDEX_DIR=${TRIGRAPH_INDEX_DIR:-data/index/trigraph_edge}
+      - TRIGRAPH_ENTITY_TOP_K=${TRIGRAPH_ENTITY_TOP_K:-10}
+      - TRIGRAPH_ENTITY_THRESHOLD=${TRIGRAPH_ENTITY_THRESHOLD:-0.35}
+      - TRIGRAPH_MAX_ITERATIONS=${TRIGRAPH_MAX_ITERATIONS:-3}
+      - TRIGRAPH_TOP_K_SENTENCE=${TRIGRAPH_TOP_K_SENTENCE:-3}
+      - TRIGRAPH_USE_PPR=${TRIGRAPH_USE_PPR:-true}
+      - TRIGRAPH_PPR_DAMPING=${TRIGRAPH_PPR_DAMPING:-0.85}
+      - TRIGRAPH_PPR_ITERS=${TRIGRAPH_PPR_ITERS:-16}
+
+      # Fusion (Dense + Sparse + Tri-Graph)
+      - FUSION_RRF_K=${FUSION_RRF_K:-60}
+      - FUSION_DYNAMIC_WEIGHTS=${FUSION_DYNAMIC_WEIGHTS:-true}
+      - FUSION_BASE_DENSE=${FUSION_BASE_DENSE:-0.45}
+      - FUSION_BASE_SPARSE=${FUSION_BASE_SPARSE:-0.35}
+      - FUSION_BASE_TRIGRAPH=${FUSION_BASE_TRIGRAPH:-0.20}
+
+      # Optional: run without LLM generation (still does retrieval + template fallback)
+      - OFFLINE_MODE=${OFFLINE_MODE:-false}
+    volumes:
+      - ./smartfarm-search/data:/app/data
+      - ./smartfarm-search/.cache:/root/.cache
+    depends_on:
+      llama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==============================================================================
+  # Frontend UI
+  # ==============================================================================
+  frontend:
+    build:
+      context: ./smartfarm-frontend
+      dockerfile: Dockerfile
+    image: smartfarm-frontend:latest
+    container_name: smartfarm-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - ERA_RAG_HOST=http://api:41177
+      - ERA_RAG_TIMEOUT=${ERA_RAG_TIMEOUT:-300}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

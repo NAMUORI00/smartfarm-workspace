@@ -1,0 +1,4 @@
+services: {}
+
+# Research GPU overrides were previously used for a dedicated `llama-index` container.
+# Tri-Graph v2 indexing is LLM-free, so this file is intentionally a no-op.
