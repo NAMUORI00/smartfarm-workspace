@@ -41,6 +41,37 @@ def _require_trigraph(sources: List[Dict[str, Any]]) -> bool:
     return False
 
 
+def _require_overlay(sources: List[Dict[str, Any]]) -> bool:
+    for s in sources:
+        meta = (s or {}).get("metadata") or {}
+        if meta.get("overlay_version"):
+            return True
+    return False
+
+
+def _wait_job_done(client, url: str, timeout_s: float, interval_s: float = 1.0) -> Optional[Dict[str, Any]]:
+    deadline = time.time() + timeout_s
+    last: Optional[Dict[str, Any]] = None
+    while time.time() < deadline:
+        try:
+            r = client.get(url)
+            if r.status_code != 200:
+                time.sleep(interval_s)
+                continue
+            last = r.json()
+            status = str(last.get("status") or "")
+            if status == "done":
+                return last
+            if status == "error":
+                print(f"[smoke][FAIL] ingest job error: {last.get('error')}", file=sys.stderr)
+                return None
+        except Exception:  # pragma: no cover - network dependent
+            pass
+        time.sleep(interval_s)
+    print(f"[smoke][FAIL] timeout waiting for ingest job: {url}", file=sys.stderr)
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="SmartFarm Docker Compose smoke test")
     parser.add_argument("--api-url", default="http://api:41177", help="API base URL (in Compose network)")
@@ -51,6 +82,16 @@ def main() -> int:
         "--require-trigraph",
         action="store_true",
         help="Fail if retrieval did not use Tri-Graph mode (retrieval_mode contains trigraph)",
+    )
+    parser.add_argument(
+        "--require-overlay",
+        action="store_true",
+        help="Fail if retrieval sources did not include overlay_version (uploads overlay not applied)",
+    )
+    parser.add_argument(
+        "--exercise-ingest",
+        action="store_true",
+        help="Enqueue a small upload ingest job before running /query",
     )
     parser.add_argument(
         "--require-edge-lightrag",
@@ -68,6 +109,8 @@ def main() -> int:
 
     api_health = f"{args.api_url.rstrip('/')}/health"
     api_query = f"{args.api_url.rstrip('/')}/query"
+    api_ingest_file = f"{args.api_url.rstrip('/')}/ingest_file"
+    api_job = f"{args.api_url.rstrip('/')}/ingest_jobs"
     llm_health = f"{args.llm_url.rstrip('/')}/health"
 
     # /query can be slow on CPU (edge) especially on cold start; keep read timeout aligned with --timeout.
@@ -80,8 +123,31 @@ def main() -> int:
             if not _wait_http_ok(client, llm_health, timeout_s=args.timeout):
                 return 1
 
-        # Avoid exact cache hits so we can verify the current retrieval path (e.g., Tri-Graph)
-        payload = {"question": f"와사비 생육 적정 온도는? (smoke {int(time.time())})", "top_k": 3, "ranker": "none"}
+        question = f"와사비 생육 적정 온도는? (smoke {int(time.time())})"
+
+        if args.exercise_ingest:
+            token = f"SMOKE_TOKEN_{int(time.time())}"
+            filename = f"smoke_{token}.txt"
+            content = f"{token}\n이 문서는 스모크 테스트를 위한 업로드 문서입니다.\n"
+            r = client.post(api_ingest_file, files={"file": (filename, content.encode("utf-8"), "text/plain")})
+            if r.status_code != 200:
+                print(f"[smoke][FAIL] /ingest_file HTTP {r.status_code}: {r.text[:500]}", file=sys.stderr)
+                return 1
+            try:
+                job_id = r.json().get("job_id")
+            except Exception:
+                job_id = None
+            if not job_id:
+                print(f"[smoke][FAIL] /ingest_file missing job_id: {r.text[:500]}", file=sys.stderr)
+                return 1
+
+            job_data = _wait_job_done(client, f"{api_job}/{job_id}", timeout_s=args.timeout)
+            if job_data is None:
+                return 1
+            question = f"{token} 관련 내용을 찾아줘. (smoke {int(time.time())})"
+
+        # Avoid exact cache hits so we can verify the current retrieval path (e.g., Tri-Graph / overlay)
+        payload = {"question": question, "top_k": 3, "ranker": "none"}
         r = client.post(api_query, json=payload)
         if r.status_code != 200:
             print(f"[smoke][FAIL] /query HTTP {r.status_code}: {r.text[:500]}", file=sys.stderr)
@@ -109,6 +175,14 @@ def main() -> int:
         require_trigraph = bool(args.require_trigraph or args.require_edge_lightrag)
         if require_trigraph and not _require_trigraph(sources):
             print("[smoke][FAIL] expected Tri-Graph retrieval but no sources had retrieval_mode containing trigraph", file=sys.stderr)
+            print("[smoke] sources metadata sample:", file=sys.stderr)
+            for s in list(sources)[:3]:
+                meta = (s or {}).get("metadata") or {}
+                print(json.dumps(meta, ensure_ascii=False)[:500], file=sys.stderr)
+            return 1
+
+        if args.require_overlay and not _require_overlay(sources):
+            print("[smoke][FAIL] expected uploads overlay but no sources had overlay_version", file=sys.stderr)
             print("[smoke] sources metadata sample:", file=sys.stderr)
             for s in list(sources)[:3]:
                 meta = (s or {}).get("metadata") or {}

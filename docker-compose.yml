@@ -84,6 +84,29 @@ services:
     restart: unless-stopped
 
   # ==============================================================================
+  # Ingest Worker (async uploads -> overlay indices)
+  # ==============================================================================
+  ingest-worker:
+    build:
+      context: ./smartfarm-search
+      dockerfile: Dockerfile
+    image: smartfarm-rag-api:latest
+    container_name: smartfarm-ingest-worker
+    command: ["python", "-m", "core.Services.Ingest.ingest_worker"]
+    environment:
+      # Keep consistent with API container so overlays are compatible
+      - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
+      - SPARSE_METHOD=${SPARSE_METHOD:-bm25}
+      - TRIGRAPH_ENABLED=${TRIGRAPH_ENABLED:-true}
+      - OVERLAY_ROOT_DIR=${OVERLAY_ROOT_DIR:-data/index/overlay_uploads}
+      - UPLOADS_DIR=${UPLOADS_DIR:-data/uploads}
+      - INGEST_DB_PATH=${INGEST_DB_PATH:-data/state/ingest_jobs.sqlite}
+    volumes:
+      - ./smartfarm-search/data:/app/data
+      - ./smartfarm-search/.cache:/root/.cache
+    restart: unless-stopped
+
+  # ==============================================================================
   # Frontend UI
   # ==============================================================================
   frontend:
