@@ -10,31 +10,45 @@
 2. **엣지 런타임 경량화**: 런타임은 (a) 인덱스 로드, (b) 검색(Fusion), (c) 로컬 LLM 생성만 수행하도록 단순화한다.
 3. **다중 홉 질의 대응**: 단순 키워드/유사도 검색으로 해결되지 않는 원인–대응형 질의(예: “왜 생육이 떨어지나?”, “어떻게 예방하나?”)에 대해 multi-hop 컨텍스트를 구성한다.
 4. **재현 가능성**: 입력 코퍼스(JSONL)만 주어지면 동일한 인덱싱·검색·생성 파이프라인을 재현할 수 있도록 아티팩트, 설정값, 측정 프로토콜을 명시한다.
+5. **온프레미스 프라이버시 경계(Private Egress 0)**: 센서/메모/업로드 등 내부 지식은 온프레미스 밖으로 전송하지 않으며, 런타임은 로컬 llama.cpp 이외의 외부 호출을 기본적으로 포함하지 않는다.
+6. **온프레미스 KB 업데이트**: 민감 입력(센서 요약, 개인 메모 등)을 로컬 경량 LLM로 규격화(엔티티/관계/태그)하여 Overlay KB에 반영하고, Base+Overlay를 함께 검색한다.
 
 우리는 RAG를 (i) 검색기 $R(q)$가 질의 $q$에 대한 상위 $K$개의 문서 조각(청크) $C=\{c_1,\dots,c_K\}$를 반환하고, (ii) 생성기 $G(q, C)$가 컨텍스트에 근거한 답변을 생성하는 문제로 정의한다 [1]. 본 연구의 핵심은 엣지 환경에서 $R$의 구성(인덱싱·검색) 비용을 최소화하면서도 $G$의 환각을 억제할 수 있는 근거 컨텍스트를 제공하는 것이다.
 
-## 3.2 시스템 구성(4-컴포넌트 분해)
+## 3.2 시스템 구성(Trust Zone 분리 + Base/Overlay)
 
-현재 구현은 다음 4개 컴포넌트로 분해된다.
+EdgeKG v3.2의 런타임은 “외부 지식 유입(Ingress)은 허용하되, 온프레미스 내부 지식의 외부 유출(Egress)은 0”이라는 운영 요구를 기본 제약으로 둔다. 이를 위해 시스템을 두 개의 평면(plane)으로 분리한다.
 
-1. **Offline / One-time Ingest & Indexing**: 코퍼스(JSONL)로부터 Dense/Sparse/Tri-Graph 아티팩트를 생성하여 디스크에 저장한다.
-2. **검색(Retrieval)**: 런타임에서 Dense(FAISS), Sparse(BM25), Tri-Graph 채널을 수행하고 weighted RRF로 융합하여 상위 $K$개의 근거 청크를 반환한다 [12].
-3. **LLM 추론(Generation)**: llama.cpp 기반 로컬 LLM으로 컨텍스트 기반 답변을 생성한다 [20].
-4. **프론트엔드(UI)**: 사용자는 UI를 통해 질의를 입력하고, 답변과 근거 청크를 확인한다(본 연구에서는 UI는 시스템 검증용 인터페이스로 취급).
+1. **Public Ingress Plane (외부지식 유입 전용)**: 외부 공개 데이터/번들만을 내려받아 “Base KB”로 들여보낸다. 이 평면은 Overlay(민감 DB)에 접근하지 않도록 볼륨/권한을 분리한다.
+2. **Private Reasoning Plane (온프레미스 내부)**: API, ingest-worker, 로컬 llama.cpp, Overlay KB로 구성되며, 센서/메모/업로드 등 민감 입력의 처리·업데이트·검색·생성을 수행한다. 이 평면은 외부로의 네트워크 egress를 기본적으로 허용하지 않는다(로컬 llama.cpp 호출만 존재).
 
-운영 흐름은 다음과 같다.
+### 3.2.1 Data diode(One-way) 모델
+
+Ingress Plane → Private Plane 방향으로만 파일 이동을 허용한다. 예를 들어 Ingress가 `inbox/`에 Base 번들을 적재하고, Private Plane은 이를 **read-only**로 읽어 내부 위치에 적용한다. Private Plane이 Ingress Plane의 쓰기 경로에 접근하지 못하도록 mount 정책으로 제약을 둔다.
+
+### 3.2.2 Base/Overlay SQLite SoT + 캐시 재생성
+
+- **Base SoT**: `base.sqlite` (외부 공개 지식 기반). Private Plane에서는 읽기 전용으로 사용한다.
+- **Overlay SoT**: `overlay.sqlite` (온프레미스 민감 입력 기반). `chunks + facts(entities/relations) + 센서`를 포함한다.
+- **파생 캐시(선택)**: FAISS/CSR/mmap 기반 인덱스·그래프 스냅샷은 버전 디렉터리로 저장되며, 삭제되더라도 SQLite SoT로부터 재생성 가능하다(복구 시간은 허용).
+
+### 3.2.3 End-to-End 운영 흐름
 
 ```
-[Offline]  corpus.jsonl
-    └─(LLM-free indexing)→  Dense/Sparse/TriGraph artifacts
-                              ├─ dense.faiss + dense_docs.jsonl
-                              ├─ sparse_bm25.pkl
-                              └─ trigraph_edge/ (mmap-friendly .npy + CSR .npz)
+[Ingress Plane]  external base bundle (public)
+    └─ download → inbox/base_updates/<version>/
+          └─ (Private Plane reads inbox as RO)
+                └─ apply → base.sqlite
+                      └─ rebuild cache bundle → base_bundles/versions/<v>/ + CURRENT
 
-[Runtime]  /query(q)
-    └─ Retrieval: Dense + Sparse + TriGraph → Fusion(RRF)
-          └─ contexts(top-K chunks)
-                └─ Generation: llama.cpp → answer
+[Private Plane]  sensor/memo/upload (private)
+    └─ async ingest job → overlay.sqlite(chunks)
+          └─ local LLM extraction → facts(entities/relations)
+                └─ overlay bundle publish → overlay_uploads/versions/<v>/ + CURRENT
+
+[Query]  /query(q, owner_id)
+    └─ Retrieval(Base+Overlay): Dense + Sparse + TriGraph + TagHash + CausalGraph → weighted RRF
+          └─ Context (privacy filtered) → local llama.cpp → answer
 ```
 
 ## 3.3 LLM-free 원타임 인덱싱(Offline Indexing)
@@ -120,12 +134,12 @@ Input: query q, top_k K
 6: return TopChunks(chunk_scores, K)
 ```
 
-## 3.5 3채널 융합: Weighted RRF + 질의 적응 가중치
+## 3.5 다채널 융합: Weighted RRF (Base+Overlay) + 질의 적응 가중치
 
-Dense/Sparse/Tri-Graph 각 채널이 반환한 순위 리스트를 weighted RRF로 융합한다 [12]. 문서(청크) $d$에 대한 최종 점수는 다음과 같이 계산한다.
+Dense/Sparse/Tri-Graph에 더해, 온프레미스 업데이트로부터 생성되는 태그/인과 그래프 신호를 **TagHash** 및 **CausalGraph** 채널로 사용한다. 또한 Base+Overlay를 함께 검색하기 위해, 각 채널에서 Base/Overlay 결과를 먼저 RRF로 결합한 뒤, 채널 간 가중 합을 수행한다. 문서(청크) $d$에 대한 최종 점수는 다음과 같이 계산한다.
 
 $$
-\\mathrm{score}(d)=\\sum_{c\\in\\{dense,sparse,trigraph\\}} \\alpha_c \\cdot \\frac{1}{k + \\mathrm{rank}_c(d) + 1}
+\\mathrm{score}(d)=\\sum_{c\\in\\{dense,sparse,trigraph,tag,causal\\}} \\alpha_c \\cdot \\frac{1}{k + \\mathrm{rank}_c(d) + 1}
 $$
 
 여기서 $k$는 RRF 하이퍼파라미터(기본 60), $\\alpha_c$는 채널 가중치이며, 구현에서는 $\\mathrm{rank}_c(d)$를 0부터 시작하는 순위 인덱스로 취급해 분모에 +1을 더한다. 본 구현은 간단한 질의 적응 규칙을 사용한다.
@@ -133,7 +147,7 @@ $$
 - **수치/단위 포함 질의**(예: ℃, %, EC, pH 등): Sparse 가중치 증가
 - **원인/해결/방법 질의**: Tri-Graph 가중치 증가
 
-기본 가중치는 (Dense, Sparse, Tri-Graph) = (0.45, 0.35, 0.20)이며, Tri-Graph 로드 실패 시 해당 채널은 자동으로 제외된다.
+기본 가중치는 (Dense, Sparse, Tri-Graph) = (0.45, 0.35, 0.20)이며, TagHash/CausalGraph는 보조 채널로 작은 기본값에서 시작한다. 각 채널은 아티팩트 미존재/불일치 시 자동으로 제외된다.
 
 ## 3.6 엣지 LLM 생성(Answer Generation)
 

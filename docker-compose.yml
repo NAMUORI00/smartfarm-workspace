@@ -31,6 +31,7 @@ services:
       timeout: 3s
       retries: 30
     restart: unless-stopped
+    networks: ["private_net"]
 
   # ==============================================================================
   # RAG API (smartfarm-search)
@@ -48,6 +49,14 @@ services:
       - LLMLITE_HOST=${LLMLITE_HOST:-http://llama:8080}
       - LLMLITE_TIMEOUT=${LLMLITE_TIMEOUT:-300}
       - LLMLITE_MAX_TOKENS=${LLMLITE_MAX_TOKENS:-256}
+      # Prevent accidental runtime downloads/calls from the private plane
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+
+      # KB locations (SoT + inbox)
+      - BASE_KB_PATH=${BASE_KB_PATH:-data/kb/base.sqlite}
+      - OVERLAY_KB_PATH=${OVERLAY_KB_PATH:-data/kb/overlay.sqlite}
+      - KB_INBOX_DIR=${KB_INBOX_DIR:-data/inbox/base_updates}
 
       # Retrieval defaults (edge-friendly)
       - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
@@ -78,10 +87,13 @@ services:
     volumes:
       - ./smartfarm-search/data:/app/data
       - ./smartfarm-search/.cache:/root/.cache
+      # Data diode: ingress writes to inbox, private plane reads only
+      - ./smartfarm-search/data/inbox:/app/data/inbox:ro
     depends_on:
       llama:
         condition: service_healthy
     restart: unless-stopped
+    networks: ["private_net"]
 
   # ==============================================================================
   # Ingest Worker (async uploads -> overlay indices)
@@ -94,19 +106,79 @@ services:
     container_name: smartfarm-ingest-worker
     command: ["python", "-m", "core.Services.Ingest.ingest_worker"]
     environment:
+      - LLMLITE_HOST=${LLMLITE_HOST:-http://llama:8080}
+      - LLMLITE_TIMEOUT=${LLMLITE_TIMEOUT:-300}
+      - LLMLITE_MAX_TOKENS=${LLMLITE_MAX_TOKENS:-256}
+      # Prevent accidental runtime downloads/calls from the private plane
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+
       # Keep consistent with API container so overlays are compatible
       - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
       - SPARSE_METHOD=${SPARSE_METHOD:-bm25}
       - TRIGRAPH_ENABLED=${TRIGRAPH_ENABLED:-true}
       - OVERLAY_ROOT_DIR=${OVERLAY_ROOT_DIR:-data/index/overlay_uploads}
       - UPLOADS_DIR=${UPLOADS_DIR:-data/uploads}
-      - INGEST_DB_PATH=${INGEST_DB_PATH:-data/state/ingest_jobs.sqlite}
+      - INGEST_DB_PATH=${INGEST_DB_PATH:-data/kb/overlay.sqlite}
+      - SENSOR_DB_PATH=${SENSOR_DB_PATH:-data/kb/overlay_sensors.sqlite}
+
+      # KB locations (SoT + inbox)
+      - BASE_KB_PATH=${BASE_KB_PATH:-data/kb/base.sqlite}
+      - OVERLAY_KB_PATH=${OVERLAY_KB_PATH:-data/kb/overlay.sqlite}
+      - KB_INBOX_DIR=${KB_INBOX_DIR:-data/inbox/base_updates}
     volumes:
       - ./smartfarm-search/data:/app/data
       - ./smartfarm-search/.cache:/root/.cache
+      # Data diode: ingress writes to inbox, private plane reads only
+      - ./smartfarm-search/data/inbox:/app/data/inbox:ro
+    depends_on:
+      llama:
+        condition: service_healthy
     healthcheck:
       disable: true
     restart: unless-stopped
+    networks: ["private_net"]
+
+  # ==============================================================================
+  # Public Ingress Plane: external base bundle downloader (one-way into inbox)
+  #
+  # This service MUST NOT mount private KB/overlay volumes. It writes only into
+  # ./smartfarm-search/data/inbox/ so the private plane can apply updates.
+  #
+  # Usage example:
+  #   BASE_BUNDLE_URL="https://example.com/base.sqlite" \
+  #   docker compose --profile ingress run --rm base-sync
+  # ==============================================================================
+  base-sync:
+    image: curlimages/curl:8.5.0
+    profiles: ["ingress"]
+    container_name: smartfarm-base-sync
+    environment:
+      - BASE_BUNDLE_URL=${BASE_BUNDLE_URL:-}
+      - BASE_MANIFEST_URL=${BASE_MANIFEST_URL:-}
+    volumes:
+      - ./smartfarm-search/data/inbox:/app/data/inbox
+    entrypoint: ["sh", "-lc"]
+    command:
+      - |
+        set -eu
+        if [ -z "$${BASE_BUNDLE_URL:-}" ]; then
+          echo "[base-sync][ERROR] BASE_BUNDLE_URL is required"
+          exit 2
+        fi
+        TS="$$(date -u +%Y%m%dT%H%M%SZ)"
+        OUT="/app/data/inbox/base_updates/$$TS"
+        mkdir -p "$$OUT"
+        echo "[base-sync] download: $$BASE_BUNDLE_URL -> $$OUT/base.sqlite"
+        curl -fsSL "$$BASE_BUNDLE_URL" -o "$$OUT/base.sqlite"
+        if [ -n "$${BASE_MANIFEST_URL:-}" ]; then
+          echo "[base-sync] download: $$BASE_MANIFEST_URL -> $$OUT/manifest.json"
+          curl -fsSL "$$BASE_MANIFEST_URL" -o "$$OUT/manifest.json"
+        fi
+        echo "$$TS" > /app/data/inbox/base_updates/LATEST
+        echo "[base-sync] done: $$OUT"
+    restart: "no"
+    networks: ["ingress_net"]
 
   # ==============================================================================
   # Frontend UI
@@ -126,3 +198,11 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
+    networks: ["private_net"]
+
+networks:
+  # Private Reasoning Plane: internal-only network (no internet egress)
+  private_net:
+    internal: true
+  # Public Ingress Plane: internet-enabled network for base-sync only
+  ingress_net: {}

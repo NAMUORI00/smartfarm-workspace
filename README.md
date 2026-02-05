@@ -16,6 +16,18 @@
 
 ---
 
+## EdgeKG v3.2 아키텍처(의도 요약)
+
+본 워크스페이스의 최근 방향은 **Asymmetric RAG**(Base + Overlay)로 정리됩니다.
+
+- **Base KB (`base.sqlite`)**: 공개 문서를 대상으로 SOTA LLM로 엔티티/인과관계까지 “컴파일”한 결과를 SQLite(SoT)로 번들링해 현장에 전달합니다.  
+  - Base 컴파일의 청킹/추출 안정화 기본값은 **LightRAG 스타일**(token chunking 1200/overlap 100, gleaning 1)을 참조합니다.
+- **Overlay KB (`overlay.sqlite`)**: 센서/메모/업로드 등 온프레미스 민감 입력은 로컬 llama.cpp로 구조화 추출 후 Overlay에만 저장·갱신합니다.
+- **검색(Retrieval)**: Base+Overlay를 함께 사용하며 Dense/Sparse/TriGraph에 더해 TagHash/CausalGraph 채널을 추가하고 weighted RRF로 융합합니다.
+- **인덱스는 캐시**: FAISS/CSR/mmap 기반 인덱스·그래프 스냅샷은 파생물(캐시)로 취급하고, `base.sqlite + overlay.sqlite`만으로 재생성 가능하게 유지합니다.
+
+---
+
 ## 주요 성과
 
 ### 시스템 성능 (엣지 환경)

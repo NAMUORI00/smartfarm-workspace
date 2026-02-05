@@ -55,6 +55,7 @@ Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
 | **Graph RAG** | LightRAG [4], PathRAG [5], LinearRAG [6] | 인덱싱(구축) 비용/자원 소모, 엣지 배포 난점 | Tri-Graph 기반 multi-hop 채널 + Dense/Sparse 결합 (Fusion) |
 | **Hybrid Retrieval** | Dense+Sparse 융합 [11], RRF [12] | 2채널 중심, 그래프 신호 통합 제한 | Dense+Sparse+Tri-Graph 3채널을 weighted RRF로 통합 |
 | **Edge Deployment** | EdgeRAG [21], AgroMetLLM [9] | 특정 태스크 한정 또는 단일 검색 채널 | llama.cpp [20] + mmap-friendly 인덱스 로딩 + Compose 기반 원타임 인덱싱 |
+| **On-Prem Update & Privacy** | LightRAG [4] (증분 업데이트), GraphRAG [3] | 민감 데이터의 온프레미스 업데이트/검색을 “외부 유출 0”로 보장하는 운영 경계 부재 | 외부지식 Ingress 분리 + Private Overlay(Egress 0) + 로컬 LLM 기반 규격화 업데이트 |
 | **Evaluation** | IR metrics with Ground Truth | 고비용 어노테이션/데이터셋 부재 | IR 메트릭 + RAGAS [22] 기반 reference-free 평가 |
 
 본 연구는 기존 Graph RAG 및 하이브리드 검색 연구(LightRAG [4], PathRAG [5], LinearRAG [6], RRF [12])의 개념을 참고하되, **온프레미스 엣지 배포를 전제로 한 “LLM-free 인덱싱 + 다중 홉 검색” 중심의 Tri-Graph RAG 구조**를 독자적으로 구현한다:
@@ -62,6 +63,7 @@ Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
 1. **LLM-free 원타임 인덱싱 파이프라인**: 오프라인에서 Dense(FAISS)·Sparse(BM25)·Tri-Graph 아티팩트를 한 번에 생성하고, 런타임은 로딩/검색만 수행하도록 분리한다.
 2. **Tri-Graph multi-hop 검색 채널**: 엔티티–문장–구절 구조에서 semantic bridging과 (선택적) PPR 기반 전역 집계를 통해 다중 홉 컨텍스트를 구성한다 [6].
 3. **3채널 융합(Fusion)**: Dense+Sparse+Tri-Graph 결과를 weighted RRF로 통합하고, 질의 유형(수치/단위 vs 원인/절차)에 따라 가중치를 조정해 엣지 환경에서의 견고성을 확보한다 [12].
-4. **재현 가능한 엣지 운영/검증**: llama.cpp 기반 로컬 추론 [20]과 Docker Compose 기반 스택(서비스/연구 분리)으로 “원타임 인덱싱 → 검색/생성” 워크플로우를 재현 가능하게 구성한다.
+4. **온프레미스 프라이버시 경계(Private Egress 0) + 업데이트**: 외부지식 유입(Ingress)과 민감지식 오버레이(Overlay)를 분리하고, 로컬 LLM로 민감 입력을 규격화하여 오버레이를 업데이트함으로써 “내부지식 유출 0” 운영 요구를 아키텍처로 고정한다.
+5. **재현 가능한 엣지 운영/검증**: llama.cpp 기반 로컬 추론 [20]과 Docker Compose 기반 스택(서비스/연구 분리)으로 “원타임 인덱싱 → 검색/생성/업데이트” 워크플로우를 재현 가능하게 구성한다.
 
 Baseline 비교는 그래프 기반 접근(LightRAG [4]) 및 하이브리드 검색 조합을 중심으로 수행하며, 특히 “인덱싱 비용/운영 복잡도”와 “엣지 런타임 성능(지연/메모리)”의 trade-off 관점에서 제안 구조의 실용성을 검증한다.
