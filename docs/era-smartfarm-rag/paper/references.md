@@ -55,3 +55,9 @@
 [27] Robertson, S., & Zaragoza, H. (2009). "The Probabilistic Relevance Framework: BM25 and Beyond." *Foundations and Trends in Information Retrieval*, 3(4), 333–389. ([링크](https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf))
 
 [28] Johnson, J., Douze, M., & Jégou, H. (2017). "Billion-scale similarity search with GPUs." *arXiv:1702.08734*. ([링크](https://arxiv.org/abs/1702.08734))
+
+[29] Thakur, N., Reimers, N., Rücklé, A., Srivastava, A., & Gurevych, I. (2021). "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models." *NeurIPS 2021 Datasets and Benchmarks*. ([링크](https://arxiv.org/abs/2104.08663))
+
+[30] Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., & Liang, P. (2023). "Lost in the Middle: How Language Models Use Long Contexts." *Transactions of the Association for Computational Linguistics*. ([링크](https://arxiv.org/abs/2307.03172))
+
+[31] OpenAI. (2022-). "tiktoken: a fast BPE tokeniser for use with OpenAI's models." *GitHub*. ([링크](https://github.com/openai/tiktoken))

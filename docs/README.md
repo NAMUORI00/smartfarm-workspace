@@ -8,6 +8,8 @@
 docs/
 ├── README.md
 └── era-smartfarm-rag/
+    ├── validation/
+    │   └── CHUNKING_GLEANING_TUNING.md
     └── paper/
         ├── 00_abstract.md
         ├── 01_introduction.md
@@ -20,7 +22,7 @@ docs/
         └── references.md
 ```
 
-> 참고: 과거에 존재하던 `validation/`, `deployment/`, `dataset-pipeline/`, `paper-tex/`, 이미지 초안(.image) 등은 문서 정리 과정에서 제거되었습니다.
+> 참고: 과거 문서 정리 과정에서 `validation/`은 제거되었으나, 2026-02부터 “튜닝/벤치 리포트” 용도로 **최소한만** 재도입했습니다.
 
 ## 논문 파일 (era-smartfarm-rag/paper/)
 

@@ -28,6 +28,33 @@
 
 ---
 
+## 연구 근거 기반 기본값
+
+현재 기본 튜닝 baseline은 아래와 같이 고정합니다.
+
+- `CHUNK_METHOD=token`
+- `CHUNK_TOKEN_SIZE=1200`
+- `CHUNK_TOKEN_OVERLAP=100`
+- `KBUPDATE_MAX_GLEANINGS=1`
+
+선정 근거:
+
+- [4] LightRAG 기본 설정과 실무 운용 사례를 baseline으로 채택 (https://arxiv.org/abs/2410.05779)
+- [3] GraphRAG의 chunking/graph extraction 설정 가능성 및 튜닝 필요성 (https://arxiv.org/abs/2404.16130)
+- [30] long-context 위치 편향(Lost in the Middle)으로 인해 “무조건 큰 chunk” 전략을 지양 (https://arxiv.org/abs/2307.03172)
+- [31] `tiktoken` 기반 토큰 길이 정규화, 미설치 시 문자 기반 fallback 사용 (https://github.com/openai/tiktoken)
+
+---
+
+## 의사결정 추적
+
+- 튜닝 프로토콜/실행 커맨드/선택 규칙:
+  `docs/era-smartfarm-rag/validation/CHUNKING_GLEANING_TUNING.md`
+- 참고문헌 원본(번호 기준):
+  `docs/era-smartfarm-rag/paper/references.md`
+
+---
+
 ## 주요 성과
 
 ### 시스템 성능 (엣지 환경)

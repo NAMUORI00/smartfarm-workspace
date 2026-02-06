@@ -43,3 +43,32 @@
 4. **프라이버시 회귀**: owner_id를 바꿔 질의했을 때 private 근거가 포함되지 않는지 검증
 
 본 연구는 위 지표를 통해 “엣지에서의 검색/생성 성능”뿐 아니라, **온프레미스 운영에서 중요한 업데이트/보안 요구**를 정량·정성적으로 함께 보고한다.
+
+## 5.4 Chunking/Gleaning Ablation (튜닝 프로토콜)
+
+본 절은 EdgeKG v3.2의 핵심 “구현 요소”인 (i) **청킹 단위**, (ii) **구조화 추출의 보완 패스(gleaning)** 를 데이터 기반으로 선택하기 위한 프로토콜을 제시한다. 목표는 특정 값의 정답을 주장하는 것이 아니라, **재현 가능한 sweep 절차를 고정**하여 Base/Overlay 및 채널별 성능 변동을 설명 가능하게 만드는 것이다.
+
+### 5.4.1 Chunking sweep (retrieval-only)
+
+- 대상: `CHUNK_METHOD=token`에서 `CHUNK_TOKEN_SIZE`, `CHUNK_TOKEN_OVERLAP`
+- 데이터셋: agxqa(도메인) + 2wiki(멀티홉) 2트랙
+- 평가: Generation을 제외한 retrieval-only로 `Recall@K`, `MRR`, `NDCG@K`와 p95 latency, index size를 함께 보고
+- 선택 규칙: (1) `mean_recall@4(agxqa)+mean_recall@4(2wiki)` 최대, (2) 동률이면 p95 latency 최소, (3) 동률이면 index size 최소
+
+### 5.4.2 Gleaning sweep (facts coverage vs 비용)
+
+- 대상: `KBUPDATE_MAX_GLEANINGS ∈ {0,1,2}`
+- 평가:
+  - facts coverage(청크당 entity/relation 수)
+  - validator에 의해 drop된 항목 비율(스키마 불일치/ID 규칙 위반)
+  - (옵션) TagHash/CausalGraph 채널 히트율(hit@K) 변화
+- 조기 종료: pass별 신규 facts 증가율이 5% 미만이면 중단(비용 폭증 방지)
+
+### 5.4.3 Baseline 고정(설명 가능성 확보)
+
+논문 내 비교 축을 위해 최소 2개의 baseline을 sweep에 항상 포함한다.
+
+- Baseline A (LightRAG-compatible): `token=1200`, `overlap=100`, `gleaning=1`
+- Baseline B (small-chunk sanity): `token=512`, `overlap=64`, `gleaning=1`
+
+세부 실행 커맨드/산출물(JSON 요약/표)은 `docs/era-smartfarm-rag/validation/CHUNKING_GLEANING_TUNING.md`에 정리한다.
