@@ -26,7 +26,7 @@ services:
       context: ./smartfarm-search
       dockerfile: Dockerfile
     image: smartfarm-rag-api:latest
-    profiles: ["research", "benchmark", "smoke"]
+    profiles: ["research", "benchmark", "smoke", "e2e"]
     container_name: smartfarm-indexer-v2
     environment:
       - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
@@ -34,19 +34,34 @@ services:
       - TRIGRAPH_INDEX_LIMIT=${TRIGRAPH_INDEX_LIMIT:-400}
       - TRIGRAPH_LANG=${TRIGRAPH_LANG:-ko}
       - TRIGRAPH_INPUT_JSONL=${TRIGRAPH_INPUT_JSONL:-/workspace/smartfarm-ingest/output/wasabi_en_ko_parallel.jsonl}
+      # Keep outputs configurable so E2E runs can be data-isolated (see docker-compose.e2e.yml)
+      - INDEX_DIR=${INDEX_DIR:-data/index}
+      - TRIGRAPH_INDEX_DIR=${TRIGRAPH_INDEX_DIR:-data/index/trigraph_edge}
     volumes:
       - ./smartfarm-search:/workspace/smartfarm-search
       - ./smartfarm-ingest:/workspace/smartfarm-ingest
       - ./smartfarm-search/.cache:/root/.cache
     working_dir: /workspace
+    networks: ["private_net"]
     healthcheck:
       disable: true
     entrypoint: ["sh", "-lc"]
     command:
       - |
         set -eu
-        OUT_DIR="/workspace/smartfarm-search/data/index/trigraph_edge"
-        META="$${OUT_DIR}/meta.json"
+        # Resolve output dirs (absolute or repo-relative)
+        if [ "$${INDEX_DIR#/*}" != "$${INDEX_DIR}" ]; then
+          INDEX_ABS="$${INDEX_DIR}"
+        else
+          INDEX_ABS="/workspace/smartfarm-search/$${INDEX_DIR}"
+        fi
+        if [ "$${TRIGRAPH_INDEX_DIR#/*}" != "$${TRIGRAPH_INDEX_DIR}" ]; then
+          TRI_ABS="$${TRIGRAPH_INDEX_DIR}"
+        else
+          TRI_ABS="/workspace/smartfarm-search/$${TRIGRAPH_INDEX_DIR}"
+        fi
+
+        META="$${TRI_ABS}/meta.json"
         if [ "$${TRIGRAPH_REBUILD}" != "1" ] && [ -f "$${META}" ]; then
           echo "[index] Tri-Graph artifacts already exist: $${META} (skip; set TRIGRAPH_REBUILD=1 to rebuild)"
           exit 0
@@ -62,7 +77,9 @@ services:
           --input-jsonl "$${INPUT}" \
           --lang "$${TRIGRAPH_LANG}" \
           --embed-model-id "$${EMBED_MODEL_ID}" \
-          --limit "$${TRIGRAPH_INDEX_LIMIT}"
+          --limit "$${TRIGRAPH_INDEX_LIMIT}" \
+          --index-dir "$${INDEX_ABS}" \
+          --trigraph-dir "$${TRI_ABS}"
     restart: "no"
 
   # ==============================================================================
@@ -105,6 +122,7 @@ services:
         condition: service_healthy
       indexer-v2:
         condition: service_completed_successfully
+    networks: ["private_net"]
     restart: "no"
 
   # ==============================================================================
@@ -129,8 +147,43 @@ services:
         condition: service_healthy
       indexer-v2:
         condition: service_completed_successfully
+    networks: ["private_net"]
     volumes:
       - ./scripts:/scripts:ro
     entrypoint: ["python", "/scripts/smoke_stack.py"]
     command: ["--require-llm", "--require-trigraph", "--timeout", "240"]
+    restart: "no"
+
+  # ==============================================================================
+  # Full E2E runner (runs once)
+  #
+  # Example:
+  #   E2E_RUN_ID=$(date -u +%Y%m%dT%H%M%SZ) \
+  #   docker compose -f docker-compose.yml -f docker-compose.research.yml -f docker-compose.e2e.yml --profile e2e run --rm e2e
+  # ==============================================================================
+  e2e:
+    build:
+      context: ./smartfarm-search
+      dockerfile: Dockerfile
+    image: smartfarm-rag-api:latest
+    profiles: ["e2e"]
+    container_name: smartfarm-e2e
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+      llama:
+        condition: service_healthy
+      ingest-worker:
+        condition: service_started
+      indexer-v2:
+        condition: service_completed_successfully
+    networks: ["private_net"]
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./output:/app/output
+      - ./smartfarm-search/data:/app/data
+    entrypoint: ["python", "/scripts/e2e_stack.py"]
+    command: ["--timeout", "300"]
     restart: "no"
