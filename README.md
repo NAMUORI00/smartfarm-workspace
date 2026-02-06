@@ -50,6 +50,9 @@
 
 - 튜닝 프로토콜/실행 커맨드/선택 규칙:
   `docs/era-smartfarm-rag/validation/CHUNKING_GLEANING_TUNING.md`
+- 성능 계측 포렌식/목표 프로파일:
+  `docs/era-smartfarm-rag/validation/PERFORMANCE_FORENSIC_REPORT_2026-02-06.md`,
+  `docs/era-smartfarm-rag/validation/PERFORMANCE_TARGET_PROFILE.md`
 - 참고문헌 원본(번호 기준):
   `docs/era-smartfarm-rag/paper/references.md`
 
@@ -62,8 +65,15 @@
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | Index Build | 233s | 24s | **10x faster** |
-| Query Latency | 4-7s | 150-180ms | **25-40x faster** |
+| Query Latency (Retrieval-only p50) | 4-7s | 21ms | **190-330x faster** |
 | Memory Usage | 3.4GB | 855MB | **4x reduction** |
+
+주의: 위 latency 수치는 retrieval-only 기준입니다. End-to-End(LLM 포함) 성능 목표/해석 기준은 `docs/era-smartfarm-rag/validation/PERFORMANCE_TARGET_PROFILE.md`를 따릅니다.
+
+2026-02-06 closeout 실측 스냅샷(non-cache, 100문항×3회):
+- Retrieval-only 평균: `p50=21.0ms`, `p95=153.4ms` (목표 통과)
+- End-to-End 평균: `p50=7.536s`, `p95=15.620s` (latency 목표 미통과, 계측 hard 오류 0)
+- 상세 리포트: `docs/era-smartfarm-rag/validation/PERFORMANCE_FORENSIC_REPORT_2026-02-06.md`
 
 ### 데이터셋 통계
 
