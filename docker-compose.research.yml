@@ -7,7 +7,6 @@ services:
   #
   # Optional one-shot utilities (recommended):
   #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile research run --rm indexer-v2
-  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile smoke run --rm smoke
   #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile benchmark run --rm benchmark
   #
   # Note:
@@ -26,14 +25,14 @@ services:
       context: ./smartfarm-search
       dockerfile: Dockerfile
     image: smartfarm-rag-api:latest
-    profiles: ["research", "benchmark", "smoke", "e2e"]
+    profiles: ["research", "benchmark", "e2e"]
     container_name: smartfarm-indexer-v2
     environment:
       - EMBED_MODEL_ID=${EMBED_MODEL_ID:-minilm}
       - TRIGRAPH_REBUILD=${TRIGRAPH_REBUILD:-0}
       - TRIGRAPH_INDEX_LIMIT=${TRIGRAPH_INDEX_LIMIT:-400}
       - TRIGRAPH_LANG=${TRIGRAPH_LANG:-ko}
-      - TRIGRAPH_INPUT_JSONL=${TRIGRAPH_INPUT_JSONL:-/workspace/smartfarm-ingest/output/wasabi_en_ko_parallel.jsonl}
+      - TRIGRAPH_INPUT_JSONL=${TRIGRAPH_INPUT_JSONL:-/workspace/smartfarm-search/data/agriqa/corpus.jsonl}
       # Keep outputs configurable so E2E runs can be data-isolated (see docker-compose.e2e.yml)
       - INDEX_DIR=${INDEX_DIR:-data/index}
       - TRIGRAPH_INDEX_DIR=${TRIGRAPH_INDEX_DIR:-data/index/trigraph_edge}
@@ -83,7 +82,7 @@ services:
     restart: "no"
 
   # ==============================================================================
-  # Benchmark runner (smartfarm-benchmarking) - runs once
+  # Agriculture RAGAS benchmark runner (smartfarm-benchmarking) - runs once
   #
   # Example:
   #   docker compose -f docker-compose.yml -f docker-compose.research.yml run --rm benchmark
@@ -93,65 +92,64 @@ services:
       context: ./smartfarm-benchmarking
       dockerfile: benchmarking/docker/Dockerfile
     image: era-benchmark:latest
-    profiles: ["benchmark"]
+    profiles: ["benchmark", "ragas"]
     container_name: smartfarm-benchmark
-    # NOTE: unified run_benchmark.py is currently not aligned with experiments modules.
-    # Compose benchmark uses a stable end-to-end /query batch evaluator instead.
-    entrypoint: ["python", "-m", "benchmarking.experiments.batch_eval_rag"]
+    # NOTE:
+    #   - Uses AgXQA (public agriculture QA) and RAGAS metrics.
+    #   - Legacy wasabi/wassabi dataset inputs are blocked by runtime guard.
+    entrypoint: ["python", "-m", "benchmarking.experiments.ragas_agriculture_benchmark"]
     command:
-      - --host
-      - http://api:41177
-      - --input
-      - /data/wasabi_qa_dataset.jsonl
-      - --ranker
-      - none
-      - --top_k
-      - "4"
-      - --limit
-      - ${BENCHMARK_LIMIT:-20}
-      - --output
-      - /app/output/batch_eval_results.json
+      - --out
+      - /app/output/graph_effectiveness/main_v4.json
+      - --protocol-id
+      - ${GRAPH_PROTOCOL_ID:-graphrag_effectiveness_v4}
+      - --frozen-config
+      - /app/benchmarking/configs/graphrag_effectiveness_v4.yaml
+      - --k
+      - ${RAGAS_TOP_K:-4}
+      - --max-queries
+      - ${RAGAS_MAX_QUERIES:-200}
+      - --seed
+      - ${RAGAS_SEED:-42}
+      - --ragas-model
+      - ${RAGAS_MODEL:-openai/gpt-oss-120b}
+      - --ragas-base-url
+      - ${OPENAI_BASE_URL}
+      - --ragas-api-key
+      - ${API_KEY}
     environment:
       - PYTHONUNBUFFERED=1
+      - SMARTFARM_WORKSPACE_ROOT=/workspace
+      - SMARTFARM_SEARCH_ROOT=/workspace/smartfarm-search
+      - LLMLITE_HOST=${LLMLITE_HOST:-http://llama:8080}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - API_KEY=${API_KEY}
+      - OPENAI_API_KEY=${API_KEY}
+      - RAGAS_ANSWER_RELEVANCY_STRICTNESS=${RAGAS_ANSWER_RELEVANCY_STRICTNESS:-1}
+      - RAGAS_METRIC_MAX_RETRIES=${RAGAS_METRIC_MAX_RETRIES:-2}
+      - RAGAS_LLM_TIMEOUT_SEC=${RAGAS_LLM_TIMEOUT_SEC:-60}
+      - RAGAS_LLM_MAX_RETRIES=${RAGAS_LLM_MAX_RETRIES:-1}
+      - RAGAS_JUDGE_MAX_TOKENS=${RAGAS_JUDGE_MAX_TOKENS:-512}
+      - RAGAS_RUN_MAX_WORKERS=${RAGAS_RUN_MAX_WORKERS:-2}
+      - RAGAS_EVAL_HARD_TIMEOUT_SEC=${RAGAS_EVAL_HARD_TIMEOUT_SEC:-900}
+      # Benchmark reproducibility: keep answer generation deterministic by default.
+      - TEMPERATURE=${PAPER_EVAL_TEMPERATURE:-0.0}
+      - LLMLITE_SEED=${PAPER_EVAL_LLM_SEED:-42}
     volumes:
       - ./output:/app/output
-      - ./smartfarm-ingest/output:/data:ro
+      # Use workspace source directly to avoid stale image code during protocol debugging.
+      - ./smartfarm-benchmarking/benchmarking:/app/benchmarking:ro
+      - ./smartfarm-search:/workspace/smartfarm-search:ro
+      - ./smartfarm-benchmarking/.cache:/root/.cache
+      - ./smartfarm-search/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B:/root/.cache/huggingface/hub/models--Qwen--Qwen3-Embedding-0.6B:ro
+      - ./smartfarm-search/.cache/huggingface/hub/models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2:/root/.cache/huggingface/hub/models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2:ro
     working_dir: /app
     depends_on:
-      api:
-        condition: service_healthy
-      indexer-v2:
-        condition: service_completed_successfully
-    networks: ["private_net"]
-    restart: "no"
-
-  # ==============================================================================
-  # End-to-end smoke test (runs once)
-  #
-  # Example:
-  #   docker compose -f docker-compose.yml -f docker-compose.research.yml --profile smoke run --rm smoke
-  # ==============================================================================
-  smoke:
-    build:
-      context: ./smartfarm-search
-      dockerfile: Dockerfile
-    image: smartfarm-rag-api:latest
-    profiles: ["smoke"]
-    container_name: smartfarm-smoke
-    healthcheck:
-      disable: true
-    depends_on:
-      api:
-        condition: service_healthy
       llama:
         condition: service_healthy
-      indexer-v2:
-        condition: service_completed_successfully
-    networks: ["private_net"]
-    volumes:
-      - ./scripts:/scripts:ro
-    entrypoint: ["python", "/scripts/smoke_stack.py"]
-    command: ["--require-llm", "--require-trigraph", "--timeout", "240"]
+    networks:
+      - private_net
+      - ingress_net
     restart: "no"
 
   # ==============================================================================

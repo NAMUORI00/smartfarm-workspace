@@ -37,6 +37,7 @@ MANIFEST
 .venv/
 .venv-*/
 .venv-cuda/
+.venv_local/
 env/
 venv/
 ENV/
