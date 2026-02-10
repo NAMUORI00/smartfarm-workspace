@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${ALLOW_FRONTEND_UNLOCK:-0}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+CHECK_SCRIPT="${ROOT_DIR}/scripts/policy/check_frontend_lock.sh"
+ZERO40="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ -z "${local_sha:-}" ]]; then
+    continue
+  fi
+  if [[ "${local_sha}" == "${ZERO40}" ]]; then
+    continue
+  fi
+
+  if [[ "${remote_sha}" == "${ZERO40}" ]]; then
+    commits="$(git rev-list "${local_sha}" --not --all)"
+    for commit_sha in ${commits}; do
+      parent_count="$(git rev-list --count --parents -n 1 "${commit_sha}" | awk '{print NF-1}')"
+      if [[ "${parent_count}" == "0" ]]; then
+        continue
+      fi
+      if ! "${CHECK_SCRIPT}" --range "${commit_sha}^" "${commit_sha}"; then
+        echo "[lock] push blocked on ${local_ref} (${commit_sha})." >&2
+        exit 1
+      fi
+    done
+    continue
+  fi
+
+  if ! "${CHECK_SCRIPT}" --range "${remote_sha}" "${local_sha}"; then
+    echo "[lock] push blocked on ${local_ref} (${remote_ref})." >&2
+    exit 1
+  fi
+done

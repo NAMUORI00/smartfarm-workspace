@@ -184,6 +184,7 @@ services:
   # Frontend UI
   # ==============================================================================
   frontend:
+    profiles: ["ui"]
     build:
       context: ./smartfarm-frontend
       dockerfile: Dockerfile
