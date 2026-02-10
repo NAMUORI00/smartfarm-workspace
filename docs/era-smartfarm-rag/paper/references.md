@@ -61,3 +61,15 @@
 [30] Liu, N. F., Lin, K., Hewitt, J., Paranjape, A., Bevilacqua, M., Petroni, F., & Liang, P. (2023). "Lost in the Middle: How Language Models Use Long Contexts." *Transactions of the Association for Computational Linguistics*. ([링크](https://arxiv.org/abs/2307.03172))
 
 [31] OpenAI. (2022-). "tiktoken: a fast BPE tokeniser for use with OpenAI's models." *GitHub*. ([링크](https://github.com/openai/tiktoken))
+
+[32] MSU-CECO. (2024). "AgXQA v1: Agriculture-domain QA benchmark dataset." *Hugging Face Datasets*. ([링크](https://huggingface.co/datasets/msu-ceco/agxqa_v1))
+
+[33] Ho, X., Nguyen, A.-K. D., Sugawara, S., & Aizawa, A. (2020). "Constructing A Multi-hop QA Dataset for Comprehensive Evaluation of Reasoning Steps." *COLING 2020*. ([링크](https://arxiv.org/abs/2011.01060))
+
+[34] Khattab, M., et al. (2025). "Comparative Evaluation of Arabic RAG Pipelines with RAGAS." *arXiv:2506.06339*. ([링크](https://arxiv.org/abs/2506.06339))
+
+[35] Patel, R., et al. (2025). "Legal Domain RAG Evaluation with RAGAS, BERTScore and ROUGE." *arXiv:2508.13107*. ([링크](https://arxiv.org/abs/2508.13107))
+
+[36] Zhang, Y., et al. (2025). "Energy Graph-RAG Evaluation using RAGAS Properties." *arXiv:2511.01643*. ([링크](https://arxiv.org/abs/2511.01643))
+
+[37] Jain, S., et al. (2024). "On the Reliability of LLM-as-a-Judge." *arXiv:2412.12509*. ([링크](https://arxiv.org/abs/2412.12509))

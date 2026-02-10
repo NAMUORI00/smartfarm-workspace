@@ -44,17 +44,40 @@
 - [30] long-context 위치 편향(Lost in the Middle)으로 인해 “무조건 큰 chunk” 전략을 지양 (https://arxiv.org/abs/2307.03172)
 - [31] `tiktoken` 기반 토큰 길이 정규화, 미설치 시 문자 기반 fallback 사용 (https://github.com/openai/tiktoken)
 
+## LLM 라우팅 기본 정책 (RAG vs Judge 분리)
+
+- **RAG 답변 모델**: `Qwen/Qwen3-4B` (OpenAI-compatible, Featherless)
+- **Graph 인게스트 추출 모델**: `moonshotai/Kimi-K2.5` (OpenAI-compatible, Featherless)
+- **Judge 모델(RAGAS)**: `openai/gpt-oss-120b` 고정
+- **권장 env**:
+  - `LLM_BACKEND=openai_compatible`
+  - `OPENAI_COMPAT_BASE_URL=https://api.featherless.ai/v1`
+  - `OPENAI_COMPAT_MODEL=Qwen/Qwen3-4B`
+  - `OPENAI_COMPAT_GRAPH_MODEL=moonshotai/Kimi-K2.5`
+  - `OPENAI_COMPAT_GRAPH_MAX_RETRIES=2`
+  - `OPENAI_BASE_URL=https://api.featherless.ai/v1`
+  - `RAGAS_MODEL=openai/gpt-oss-120b`
+
+엣지 배포 시 전환(로컬 llama.cpp):
+- `LLM_BACKEND=llama_cpp`
+- `LLMLITE_HOST=http://localhost:45857`
+- (선택) `LLMLITE_MODEL=` (빈 값이면 로컬 로드 GGUF 사용)
+
 ---
 
 ## 의사결정 추적
 
-- 튜닝 프로토콜/실행 커맨드/선택 규칙:
-  `docs/era-smartfarm-rag/validation/CHUNKING_GLEANING_TUNING.md`
-- 성능 계측 포렌식/목표 프로파일:
-  `docs/era-smartfarm-rag/validation/PERFORMANCE_FORENSIC_REPORT_2026-02-06.md`,
-  `docs/era-smartfarm-rag/validation/PERFORMANCE_TARGET_PROFILE.md`
-- 참고문헌 원본(번호 기준):
-  `docs/era-smartfarm-rag/paper/references.md`
+- 현재 워크스페이스 문서는 **논문 초안 중심**으로 유지합니다.
+- 섹션 초안: `docs/era-smartfarm-rag/paper/00_abstract.md` ~ `docs/era-smartfarm-rag/paper/06_conclusion.md`
+- 참고문헌 원본(번호 기준): `docs/era-smartfarm-rag/paper/references.md`
+- `03/04/05`는 의도적으로 `추후 작성` 상태입니다.
+
+### Graph-KB 검증 실행 원칙 (현재)
+
+- 비교군: `dense_only`, `bm25_only`, `rrf`, `lightrag_mix`, `ours_structural`
+- 평가지표 계산은 RAGAS 공식 라이브러리 기준으로 유지
+- 구조 수정은 검색/그래프 경로에 한정하고, 평가 코드 자체는 변경하지 않음
+- 데이터셋: `agxqa(test)`, `2wiki(validation)`, `scifact(BEIR-style)`
 
 ---
 
@@ -68,12 +91,7 @@
 | Query Latency (Retrieval-only p50) | 4-7s | 21ms | **190-330x faster** |
 | Memory Usage | 3.4GB | 855MB | **4x reduction** |
 
-주의: 위 latency 수치는 retrieval-only 기준입니다. End-to-End(LLM 포함) 성능 목표/해석 기준은 `docs/era-smartfarm-rag/validation/PERFORMANCE_TARGET_PROFILE.md`를 따릅니다.
-
-2026-02-06 closeout 실측 스냅샷(non-cache, 100문항×3회):
-- Retrieval-only 평균: `p50=21.0ms`, `p95=153.4ms` (목표 통과)
-- End-to-End 평균: `p50=7.536s`, `p95=15.620s` (latency 목표 미통과, 계측 hard 오류 0)
-- 상세 리포트: `docs/era-smartfarm-rag/validation/PERFORMANCE_FORENSIC_REPORT_2026-02-06.md`
+주의: 위 latency 수치는 retrieval-only 기준입니다. 최신 수치는 실행 시점 산출물(`output/`)을 기준으로 해석합니다.
 
 ### 데이터셋 통계
 
@@ -92,8 +110,15 @@
 | `smartfarm-ingest/` | 데이터 인게스트/오프라인 인덱싱 + Dataset pipeline | [smartfarm-ingest](https://github.com/NAMUORI00/smartfarm-ingest) |
 | `smartfarm-benchmarking/` | 벤치마크/실험 코드 | [smartfarm-benchmarking](https://github.com/NAMUORI00/smartfarm-benchmarking) |
 | `smartfarm-llm-inference/` | LLM 추론(gguf/llama.cpp) 서비스 | [smartfarm-llm-inference](https://github.com/NAMUORI00/smartfarm-llm-inference) |
-| `smartfarm-frontend/` | Streamlit 프론트엔드 UI | [smartfarm-frontend](https://github.com/NAMUORI00/smartfarm-frontend) |
+| `smartfarm-frontend/` | Streamlit 프론트엔드 UI (정책 잠금: 기본 비활성) | [smartfarm-frontend](https://github.com/NAMUORI00/smartfarm-frontend) |
 | `docs/` | 통합 문서 (논문, 검증 보고서, 데이터셋 카드) | - |
+
+### Frontend 잠금 정책
+
+- 기본값: `FRONTEND_LOCKED=1` (frontend 실행/호출 차단)
+- 예외 해제: `FRONTEND_LOCKED=0` 또는 `ALLOW_FRONTEND_UNLOCK=1`
+- Compose 기본 실행은 `frontend` 서비스 프로파일(`ui`)을 포함하지 않습니다.
+- 커밋/푸시 차단 훅 설치: `./scripts/policy/install_hooks.sh`
 
 ---
 
@@ -115,13 +140,7 @@ git submodule update --init --recursive
 
 ```bash
 cd smartfarm-search
-python setup.py --mode local    # 의존성 설치 + GGUF 모델 다운로드
-make build && make up           # Docker 빌드 및 실행
-```
-
-개발 모드 (Docker 없이):
-```bash
-cd smartfarm-search
+python setup.py --mode local    # 의존성 설치 + 모델 준비
 uvicorn core.main:app --port 41177 --reload
 ```
 
@@ -147,7 +166,7 @@ python tests/test_pipeline.py   # Smoke test
 | **데이터셋** | `docs/dataset-pipeline/dataset/` | DATASET_CARD.md, LIMITATIONS.md |
 | **배포 가이드** | `docs/era-smartfarm-rag/deployment/` | PIPELINE.md |
 
-자세한 문서 구조는 [docs/README.md](docs/README.md) 참조.
+문서 인덱스 파일(`docs/README.md`)은 현재 유지하지 않으며, `docs/era-smartfarm-rag/paper/`를 기준으로 관리합니다.
 
 ---
 
