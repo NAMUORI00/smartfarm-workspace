@@ -20,6 +20,21 @@ if ! grep -q "ALLOW_DEV_REMOTE_PRIVATE=.*false" "$EDGE_COMPOSE"; then
   exit 4
 fi
 
+if ! grep -q "PRIVATE_LLM_POLICY=.*local_only" "$EDGE_COMPOSE"; then
+  echo "[FAIL] compose.edge.yml must default PRIVATE_LLM_POLICY=local_only"
+  exit 5
+fi
+
+if ! grep -q "PRIVATE_EGRESS_BLOCK=.*true" "$EDGE_COMPOSE"; then
+  echo "[FAIL] compose.edge.yml must default PRIVATE_EGRESS_BLOCK=true"
+  exit 6
+fi
+
+if ! grep -q "LLM_BACKEND=.*llama_cpp" "$EDGE_COMPOSE"; then
+  echo "[FAIL] compose.edge.yml must default LLM_BACKEND=llama_cpp"
+  exit 7
+fi
+
 if [[ -x "$ROOT_DIR/smartfarm-search/.venv/bin/python" ]]; then
   "$ROOT_DIR/smartfarm-search/.venv/bin/python" "$AUDIT_SCRIPT"
 else
