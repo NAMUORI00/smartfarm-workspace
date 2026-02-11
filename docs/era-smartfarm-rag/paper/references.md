@@ -73,3 +73,21 @@
 [36] Zhang, Y., et al. (2025). "Energy Graph-RAG Evaluation using RAGAS Properties." *arXiv:2511.01643*. ([링크](https://arxiv.org/abs/2511.01643))
 
 [37] Jain, S., et al. (2024). "On the Reliability of LLM-as-a-Judge." *arXiv:2412.12509*. ([링크](https://arxiv.org/abs/2412.12509))
+
+[38] Guo, Z., et al. (2025). "RAG-Anything: Building Multimodal AI with Any Data." *arXiv:2510.12323*. ([링크](https://arxiv.org/abs/2510.12323))
+
+[39] FalkorDB. (2024). "FalkorDB: A Super Fast Graph Database Using GraphBLAS." *GitHub*. ([링크](https://github.com/FalkorDB/FalkorDB))
+
+[40] Qdrant. (2024). "Qdrant: High-Performance Vector Search Engine." *GitHub*. ([링크](https://github.com/qdrant/qdrant))
+
+[41] OpenDataLab. (2024). "MinerU: An Open-Source Solution for Precise Document Content Extraction." *GitHub*. ([링크](https://github.com/opendatalab/MinerU))
+
+[42] Alibaba. (2025). "Qwen3 Technical Report." *Qwen Blog*. ([링크](https://qwenlm.github.io/blog/qwen3/))
+
+[43] FedE4RAG. (2024). "Federated Learning for Privacy-Preserving RAG Systems." *arXiv*. ([링크](https://github.com/FedE4RAG))
+
+[44] DP-FedLoRA. (2025). "Differentially Private Federated LoRA for On-Device LLM Fine-Tuning." *arXiv*.
+
+[45] Graphiti. (2025). "Building Real-Time Knowledge Graphs with Incremental Updates." *GitHub*. ([링크](https://github.com/getzep/graphiti))
+
+[46] MoonshotAI. (2025). "Kimi-K2.5: Scaling Reinforcement Learning with LLMs." *Hugging Face*. ([링크](https://huggingface.co/moonshotai/Kimi-K2.5))
