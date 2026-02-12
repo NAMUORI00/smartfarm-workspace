@@ -31,6 +31,9 @@ ALLOW_RE='(/v1($|/)|agxqa_v1|MiniLM-L6-v2|MiniLM-L12-v2|mpnet-base-v2|bge-base-e
 violations=0
 while IFS= read -r rel_path; do
   [[ -n "$rel_path" ]] || continue
+  if [[ "$rel_path" == "scripts/policy/check_version_suffixes.sh" ]]; then
+    continue
+  fi
   abs_path="$ROOT_DIR/$rel_path"
   [[ -f "$abs_path" ]] || continue
 
