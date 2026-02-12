@@ -21,10 +21,11 @@ services:
     depends_on: [qdrant, falkordb]
     environment:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.featherless.ai/v1}
-      - API_KEY=${API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-${API_KEY:-}}
+      - OPENAI_MODEL=${OPENAI_MODEL:-Qwen/Qwen2.5-32B-Instruct}
       - EMBED_BACKEND=${EMBED_BACKEND:-openai_compatible}
       - EMBED_BASE_URL=${EMBED_BASE_URL:-${OPENAI_BASE_URL:-https://api.featherless.ai/v1}}
-      - EMBED_API_KEY=${EMBED_API_KEY:-${API_KEY:-}}
+      - EMBED_API_KEY=${EMBED_API_KEY:-${OPENAI_API_KEY:-${API_KEY:-}}}
       - EMBED_MODEL=${EMBED_MODEL:-Qwen/Qwen3-VL-Embedding-2B}
       - EMBED_DIM=${EMBED_DIM:-512}
       - EMBED_TIMEOUT=${EMBED_TIMEOUT:-30}
@@ -32,9 +33,17 @@ services:
       - DOCLING_VLM_PROFILE=${DOCLING_VLM_PROFILE:-enabled}
       - DOCLING_ENABLE_VLM=${DOCLING_ENABLE_VLM:-true}
       - DOCLING_VLM_MODEL=${DOCLING_VLM_MODEL:-}
-      - KIMI_API_BASE=${KIMI_API_BASE:-https://api.moonshot.cn/v1}
-      - KIMI_API_KEY=${KIMI_API_KEY:-}
-      - KIMI_MODEL=${KIMI_MODEL:-moonshot-v1-8k}
+      - EXTRACTOR_BASE_URL=${EXTRACTOR_BASE_URL:-${OPENAI_BASE_URL:-https://api.featherless.ai/v1}}
+      - EXTRACTOR_API_KEY=${EXTRACTOR_API_KEY:-${OPENAI_API_KEY:-${API_KEY:-}}}
+      - EXTRACTOR_MODEL=${EXTRACTOR_MODEL:-${OPENAI_MODEL:-Qwen/Qwen2.5-32B-Instruct}}
+      - EXTRACTOR_MODEL_CANDIDATES=${EXTRACTOR_MODEL_CANDIDATES:-Qwen/Qwen2.5-14B-Instruct,Qwen/Qwen2.5-7B-Instruct,meta-llama/Llama-3.1-8B-Instruct}
+      - EXTRACTOR_TIMEOUT=${EXTRACTOR_TIMEOUT:-45}
+      - EXTRACTOR_MAX_TOKENS=${EXTRACTOR_MAX_TOKENS:-1024}
+      - EXTRACTOR_TEMPERATURE=${EXTRACTOR_TEMPERATURE:-0.0}
+      # Legacy aliases kept for compatibility with older local env files.
+      - KIMI_API_BASE=${KIMI_API_BASE:-${EXTRACTOR_BASE_URL:-https://api.featherless.ai/v1}}
+      - KIMI_API_KEY=${KIMI_API_KEY:-${EXTRACTOR_API_KEY:-}}
+      - KIMI_MODEL=${KIMI_MODEL:-${EXTRACTOR_MODEL:-Qwen/Qwen2.5-32B-Instruct}}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - FALKORDB_HOST=falkordb
