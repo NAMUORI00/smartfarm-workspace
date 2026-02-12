@@ -1,4 +1,4 @@
-name: v2-sovereignty-gate
+name: sovereignty-gate
 
 on:
   pull_request:
@@ -29,11 +29,15 @@ jobs:
         run: |
           bash scripts/ci/check_sovereignty_gate.sh
 
-      - name: Unit/integration tests (v2)
+      - name: Version suffix policy gate
+        run: |
+          bash scripts/policy/check_version_suffixes.sh
+
+      - name: Unit/integration tests
         run: |
           cd smartfarm-search
           .venv/bin/python -m pytest -q -s tests/unit tests/integration
 
       - name: Local E2E gate (mock llama)
         run: |
-          smartfarm-search/.venv/bin/python scripts/ci/run_v2_local_e2e.py --workspace . --py-bin smartfarm-search/.venv/bin/python
+          smartfarm-search/.venv/bin/python scripts/ci/run_local_e2e.py --workspace . --py-bin smartfarm-search/.venv/bin/python

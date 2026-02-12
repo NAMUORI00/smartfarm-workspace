@@ -4,7 +4,7 @@ set -euo pipefail
 QDRANT_HOST="${QDRANT_HOST:-localhost}"
 QDRANT_PORT="${QDRANT_PORT:-6333}"
 QDRANT_URL="${QDRANT_URL:-http://${QDRANT_HOST}:${QDRANT_PORT}}"
-QDRANT_COLLECTION="${QDRANT_COLLECTION:-smartfarm_chunks_v2}"
+QDRANT_COLLECTION="${QDRANT_COLLECTION:-smartfarm_chunks}"
 EMBED_DIM="${EMBED_DIM:-512}"
 
 echo "[reindex] qdrant=${QDRANT_URL} collection=${QDRANT_COLLECTION} embed_dim=${EMBED_DIM}"

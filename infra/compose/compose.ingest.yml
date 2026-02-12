@@ -46,7 +46,7 @@ services:
     build:
       context: ../../smartfarm-benchmarking
       dockerfile: Dockerfile
-    container_name: smartfarm-evaluator-v2
+    container_name: smartfarm-evaluator
     depends_on: [qdrant, falkordb]
     environment:
       - OPENAI_COMPAT_BASE_URL=${OPENAI_COMPAT_BASE_URL:-https://api.featherless.ai/v1}

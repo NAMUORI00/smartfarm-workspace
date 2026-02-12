@@ -117,7 +117,7 @@ def run_local_e2e(
             "PRIVATE_EGRESS_BLOCK": "true",
             "ALLOW_DEV_REMOTE_PRIVATE": "false",
             "PRIVATE_STORE_DB_PATH": str(out_dir / "private_overlay.sqlite"),
-            "LOG_PATH": str(out_dir / "query_v2.log"),
+            "LOG_PATH": str(out_dir / "query.log"),
             "QDRANT_HOST": "127.0.0.1",
             "QDRANT_PORT": "6333",
             "FALKORDB_HOST": "127.0.0.1",
@@ -142,12 +142,12 @@ def run_local_e2e(
             cwd=search_dir,
             env=env,
         )
-        _assert(_wait_ready(f"{base_url}/v2/health/live", timeout_s=30.0), "search API did not become healthy")
+        _assert(_wait_ready(f"{base_url}/health/live", timeout_s=30.0), "search API did not become healthy")
         summary["checks"]["api_live"] = True
 
         memo = _post_json(
             base_url,
-            "/v2/private/memo",
+            "/private/memo",
             {"farm_id": "farm-e2e", "text": "하우스 습도 88 기록", "source_type": "memo"},
         )
         _assert(str(memo.get("status")) == "ok", "private memo ingest failed")
@@ -156,7 +156,7 @@ def run_local_e2e(
 
         q1 = _post_json(
             base_url,
-            "/v2/query",
+            "/query",
             {"question": "습도 88 기록 요약해줘", "farm_id": "farm-e2e", "top_k": 5, "debug": True},
         )
         routing1 = q1.get("routing") or {}
@@ -166,13 +166,13 @@ def run_local_e2e(
         _assert(bool(routing1.get("private_eligible")) is True, "private eligible should be true for sensor/memo-style query")
         summary["checks"]["private_query_routing"] = True
 
-        purge = _post_json(base_url, "/v2/admin/purge_private", {"farm_id": "farm-e2e"})
+        purge = _post_json(base_url, "/admin/purge_private", {"farm_id": "farm-e2e"})
         _assert(int(purge.get("deleted_overlay_rows") or 0) >= 1, "private purge did not delete overlay rows")
         summary["checks"]["purge_private"] = True
 
         q2 = _post_json(
             base_url,
-            "/v2/query",
+            "/query",
             {"question": "습도 88 기록 요약해줘", "farm_id": "farm-e2e", "top_k": 5, "debug": True},
         )
         routing2 = q2.get("routing") or {}
@@ -183,7 +183,7 @@ def run_local_e2e(
         edge_cmd = [
             py_bin,
             "-m",
-            "benchmarking.experiments.edge_profile_v2",
+            "benchmarking.experiments.edge_profile",
             "--base-url",
             base_url,
             "--farm-id",
@@ -204,7 +204,7 @@ def run_local_e2e(
         if run_dataset_bench:
             bench_cmd = [
                 "bash",
-                str(workspace / "scripts" / "run_v2_bench_suite.sh"),
+                str(workspace / "scripts" / "run_bench_suite.sh"),
             ]
             bench_env = dict(env)
             bench_env.update(
@@ -238,7 +238,7 @@ def run_local_e2e(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run local v2 E2E gate with mock llama server")
+    parser = argparse.ArgumentParser(description="Run local E2E gate with mock llama server")
     parser.add_argument("--workspace", default=".")
     parser.add_argument("--py-bin", default=str(Path("smartfarm-search/.venv/bin/python")))
     parser.add_argument("--api-port", type=int, default=41177)

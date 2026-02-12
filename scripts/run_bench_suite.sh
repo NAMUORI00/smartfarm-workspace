@@ -9,4 +9,4 @@ fi
 cd "$ROOT_DIR/smartfarm-benchmarking"
 
 export PY_BIN="$PY_BIN_IN"
-bash benchmarking/runners/run_v2_suite.sh
+bash benchmarking/runners/run_suite.sh

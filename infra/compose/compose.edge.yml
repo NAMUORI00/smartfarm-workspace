@@ -1,7 +1,7 @@
 services:
   qdrant:
     image: qdrant/qdrant:v1.13.2
-    container_name: smartfarm-qdrant-v2
+    container_name: smartfarm-qdrant
     ports: ["6333:6333"]
     volumes:
       - ../../smartfarm-search/data/qdrant:/qdrant/storage
@@ -10,7 +10,7 @@ services:
 
   falkordb:
     image: falkordb/falkordb:latest
-    container_name: smartfarm-falkordb-v2
+    container_name: smartfarm-falkordb
     ports: ["6379:6379"]
     environment:
       FALKORDB_ARGS: "--maxmemory 512mb"
@@ -21,7 +21,7 @@ services:
 
   llama:
     image: ghcr.io/ggml-org/llama.cpp:server
-    container_name: smartfarm-llama-v2
+    container_name: smartfarm-llama
     command:
       - --model
       - ${LLAMA_MODEL_PATH:-/models/Qwen3-4B-Q4_K_M.gguf}
@@ -41,7 +41,7 @@ services:
     build:
       context: ../../smartfarm-search
       dockerfile: Dockerfile
-    container_name: smartfarm-api-v2
+    container_name: smartfarm-api
     ports: ["41177:41177"]
     depends_on: [qdrant, falkordb, llama]
     environment:
