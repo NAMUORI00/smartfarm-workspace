@@ -33,3 +33,7 @@ jobs:
         run: |
           cd smartfarm-search
           .venv/bin/python -m pytest -q -s tests/unit tests/integration
+
+      - name: Local E2E gate (mock llama)
+        run: |
+          smartfarm-search/.venv/bin/python scripts/ci/run_v2_local_e2e.py --workspace . --py-bin smartfarm-search/.venv/bin/python
