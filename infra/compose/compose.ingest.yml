@@ -24,6 +24,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-${API_KEY:-}}
       - OPENAI_MODEL=${OPENAI_MODEL:-Qwen/Qwen2.5-32B-Instruct}
       - OPENAI_MODEL_CANDIDATES=${OPENAI_MODEL_CANDIDATES:-Qwen/Qwen2.5-14B-Instruct,Qwen/Qwen2.5-7B-Instruct,meta-llama/Llama-3.1-8B-Instruct}
+      - HF_TOKEN=${HF_TOKEN:-${HUGGINGFACE_HUB_TOKEN:-}}
+      - HUGGINGFACE_HUB_TOKEN=${HUGGINGFACE_HUB_TOKEN:-${HF_TOKEN:-}}
       - EMBED_BACKEND=${EMBED_BACKEND:-openai_compatible}
       - EMBED_BASE_URL=${EMBED_BASE_URL:-${OPENAI_BASE_URL:-https://api.featherless.ai/v1}}
       - EMBED_API_KEY=${EMBED_API_KEY:-${OPENAI_API_KEY:-${API_KEY:-}}}
@@ -53,6 +55,8 @@ services:
       - OPENAI_COMPAT_API_KEY=${OPENAI_COMPAT_API_KEY:-${OPENAI_API_KEY:-}}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.featherless.ai/v1}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - HF_TOKEN=${HF_TOKEN:-${HUGGINGFACE_HUB_TOKEN:-}}
+      - HUGGINGFACE_HUB_TOKEN=${HUGGINGFACE_HUB_TOKEN:-${HF_TOKEN:-}}
       - RAGAS_MODEL=${RAGAS_MODEL:-openai/gpt-oss-120b}
     volumes:
       - ../../output:/app/output

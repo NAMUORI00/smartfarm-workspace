@@ -14,6 +14,32 @@ from typing import Any, Dict, Tuple
 import httpx
 
 
+def _merge_dotenv(env: Dict[str, str], path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+            value = value[1:-1]
+        if key not in env:
+            env[key] = value
+
+
 def _wait_ready(url: str, timeout_s: float = 30.0) -> bool:
     t0 = time.time()
     while (time.time() - t0) < float(timeout_s):
@@ -105,6 +131,13 @@ def run_local_e2e(
     }
 
     env = os.environ.copy()
+    _merge_dotenv(env, workspace / ".env")
+    _merge_dotenv(env, workspace / "smartfarm-search" / ".env")
+    _merge_dotenv(env, workspace / "smartfarm-ingest" / ".env")
+    if env.get("HF_TOKEN") and not env.get("HUGGINGFACE_HUB_TOKEN"):
+        env["HUGGINGFACE_HUB_TOKEN"] = str(env["HF_TOKEN"])
+    if env.get("HUGGINGFACE_HUB_TOKEN") and not env.get("HF_TOKEN"):
+        env["HF_TOKEN"] = str(env["HUGGINGFACE_HUB_TOKEN"])
     env.update(
         {
             "PYTHONPATH": str(search_dir),
