@@ -66,9 +66,23 @@ services:
       - SOVEREIGNTY_ENFORCED=${SOVEREIGNTY_ENFORCED:-true}
       - PRIVATE_EGRESS_BLOCK=${PRIVATE_EGRESS_BLOCK:-true}
       - ALLOW_DEV_REMOTE_PRIVATE=${ALLOW_DEV_REMOTE_PRIVATE:-false}
+      - PRIVATE_TTL_DAYS=${PRIVATE_TTL_DAYS:-30}
+      - PRIVATE_TTL_SWEEP_SECONDS=${PRIVATE_TTL_SWEEP_SECONDS:-600}
     volumes:
       - ../../smartfarm-search/data:/app/data
     mem_limit: 2g
+    networks: [private_net]
+
+  frontend:
+    build:
+      context: ../../smartfarm-frontend
+      dockerfile: Dockerfile
+    container_name: smartfarm-frontend
+    depends_on: [api]
+    environment:
+      - ERA_RAG_HOST=http://api:41177
+    ports: ["8501:8501"]
+    mem_limit: 768m
     networks: [private_net]
 
 networks:

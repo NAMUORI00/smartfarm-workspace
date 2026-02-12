@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m venv smartfarm-search/.venv
           smartfarm-search/.venv/bin/pip install --upgrade pip
-          smartfarm-search/.venv/bin/pip install pytest fastapi pydantic python-dotenv httpx uvicorn redis
+          smartfarm-search/.venv/bin/pip install pytest fastapi pydantic python-dotenv httpx uvicorn redis qdrant-client
 
       - name: Sovereignty gate
         run: |
@@ -37,6 +37,12 @@ jobs:
         run: |
           cd smartfarm-search
           .venv/bin/python -m pytest -q -s tests/unit tests/integration
+
+      - name: Docling VLM profile smoke
+        env:
+          DOCLING_VLM_PROFILE: enabled
+        run: |
+          PYTHONPATH=smartfarm-ingest smartfarm-search/.venv/bin/python -m pytest -q -s smartfarm-ingest/tests/test_docling_parser.py
 
       - name: Local E2E gate (mock llama)
         run: |

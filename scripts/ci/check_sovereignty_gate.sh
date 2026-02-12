@@ -46,7 +46,8 @@ if ! command -v rg >/dev/null 2>&1; then
 fi
 if $SCAN_CMD "Deterministic hash embedding fallback|_dummy_vector\\(|sha256\\(\\(text or \"\"\\)\\.encode\\(\"utf-8\"\\)\\)\\.digest\\(" \
   "$ROOT_DIR/smartfarm-search/core/retrieval/qdrant_client.py" \
-  "$ROOT_DIR/smartfarm-ingest/pipeline/vector_writer.py" >/dev/null; then
+  "$ROOT_DIR/smartfarm-ingest/pipeline/vector_writer.py" \
+  "$ROOT_DIR/smartfarm-benchmarking/benchmarking/experiments/paper_eval.py" >/dev/null; then
   echo "[FAIL] dummy/hash embedding code detected in runtime embedding path"
   exit 9
 fi
