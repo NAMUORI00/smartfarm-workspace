@@ -22,6 +22,15 @@ services:
     environment:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.featherless.ai/v1}
       - API_KEY=${API_KEY:-}
+      - EMBED_BACKEND=${EMBED_BACKEND:-openai_compatible}
+      - EMBED_BASE_URL=${EMBED_BASE_URL:-${OPENAI_BASE_URL:-https://api.featherless.ai/v1}}
+      - EMBED_API_KEY=${EMBED_API_KEY:-${API_KEY:-}}
+      - EMBED_MODEL=${EMBED_MODEL:-Qwen/Qwen3-VL-Embedding-2B}
+      - EMBED_DIM=${EMBED_DIM:-512}
+      - EMBED_TIMEOUT=${EMBED_TIMEOUT:-30}
+      - EMBED_BATCH_SIZE=${EMBED_BATCH_SIZE:-8}
+      - DOCLING_ENABLE_VLM=${DOCLING_ENABLE_VLM:-true}
+      - DOCLING_VLM_MODEL=${DOCLING_VLM_MODEL:-}
       - KIMI_API_BASE=${KIMI_API_BASE:-https://api.moonshot.cn/v1}
       - KIMI_API_KEY=${KIMI_API_KEY:-}
       - KIMI_MODEL=${KIMI_MODEL:-moonshot-v1-8k}

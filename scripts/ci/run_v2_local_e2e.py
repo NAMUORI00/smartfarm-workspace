@@ -151,6 +151,7 @@ def run_local_e2e(
             {"farm_id": "farm-e2e", "text": "하우스 습도 88 기록", "source_type": "memo"},
         )
         _assert(str(memo.get("status")) == "ok", "private memo ingest failed")
+        _assert(int(memo.get("extracted_entities") or 0) > 0, "private extraction entities must be created")
         summary["checks"]["ingest_private_memo"] = True
 
         q1 = _post_json(
@@ -160,6 +161,7 @@ def run_local_e2e(
         )
         routing1 = q1.get("routing") or {}
         _assert(str(routing1.get("generation_provider")) == "local", "private query must route to local provider")
+        _assert(str(routing1.get("embedding_provider")) == "llama_cpp", "edge embedding provider must be llama_cpp")
         _assert(bool(routing1.get("private_present")) is True, "private query should include private evidence")
         _assert(bool(routing1.get("private_eligible")) is True, "private eligible should be true for sensor/memo-style query")
         summary["checks"]["private_query_routing"] = True
@@ -247,7 +249,7 @@ def main() -> int:
     workspace = Path(args.workspace).resolve()
     py_bin = str(Path(args.py_bin))
     if not Path(py_bin).is_absolute():
-        py_bin = str((workspace / py_bin).resolve())
+        py_bin = str((workspace / py_bin).absolute())
 
     _, rc = run_local_e2e(
         workspace=workspace,

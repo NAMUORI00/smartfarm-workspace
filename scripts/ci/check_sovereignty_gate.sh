@@ -35,6 +35,22 @@ if ! grep -q "LLM_BACKEND=.*llama_cpp" "$EDGE_COMPOSE"; then
   exit 7
 fi
 
+if ! grep -q "EMBED_BACKEND=llama_cpp" "$EDGE_COMPOSE"; then
+  echo "[FAIL] compose.edge.yml must force EMBED_BACKEND=llama_cpp"
+  exit 8
+fi
+
+SCAN_CMD="rg -n"
+if ! command -v rg >/dev/null 2>&1; then
+  SCAN_CMD="grep -nE"
+fi
+if $SCAN_CMD "Deterministic hash embedding fallback|_dummy_vector\\(|sha256\\(\\(text or \"\"\\)\\.encode\\(\"utf-8\"\\)\\)\\.digest\\(" \
+  "$ROOT_DIR/smartfarm-search/core/retrieval/qdrant_client.py" \
+  "$ROOT_DIR/smartfarm-ingest/pipeline/vector_writer.py" >/dev/null; then
+  echo "[FAIL] dummy/hash embedding code detected in runtime embedding path"
+  exit 9
+fi
+
 if [[ -x "$ROOT_DIR/smartfarm-search/.venv/bin/python" ]]; then
   "$ROOT_DIR/smartfarm-search/.venv/bin/python" "$AUDIT_SCRIPT"
 else
