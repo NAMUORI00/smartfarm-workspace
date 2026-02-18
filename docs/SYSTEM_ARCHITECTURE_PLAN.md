@@ -155,7 +155,7 @@ IEEE Access 등재를 위한 **4가지 명확한 기여점**:
 |---|---|---|---|---|
 | **전처리** | Unstructured | OSS | 멀티모달 문서 파싱 (PDF/Table/Image) | ETL for RAG (Unstructured.io, 2024) |
 | **추출 LLM** | OpenAI-compatible (설정 가능) | 실험: `openai/gpt-oss-120b` | 엔티티/관계 추출 | OpenAI-compatible 운영 표준 |
-| **임베딩 모델** | Hugging Face Inference API | 실험: `sentence-transformers/distiluse-base-multilingual-cased-v2` (512d) | Dense+Image 벡터 생성 | HF feature-extraction API |
+| **임베딩 모델** | Hugging Face Inference API | 실험: `BAAI/bge-m3` (1024d, multilingual 100+ langs) | Dense+Image 벡터 생성 | BGE-M3 model card (MIT), HF feature-extraction API |
 | **벡터 DB** | Qdrant | v1.10+ | Dense(HNSW) + Sparse(BM25) 하이브리드 | Filterable HNSW, Named Vectors |
 | **그래프 DB** | FalkorDB | v4+ | 지식그래프 저장 + Cypher 탐색 | GraphBLAS sparse matrix, <1ms 지연 |
 | **답변 생성 LLM** | llama.cpp / OpenAI-compatible (설정 가능) | 실험: Qwen3-4B-Q4_K_M | 엣지 디바이스 답변 생성 | 4-bit 양자화 GGUF |
@@ -333,16 +333,16 @@ from qdrant_client import QdrantClient, models
 client = QdrantClient(host="localhost", port=6333)
 
 # Multi-vector 컬렉션: Dense (text + image) + Sparse를 하나의 point에 저장
-# 임베딩 모델/차원은 코드 기본값으로 고정 (distiluse-base-multilingual-cased-v2, 512d)
+# 임베딩 모델/차원은 코드 기본값으로 고정 (BAAI/bge-m3, 1024d)
 client.create_collection(
     collection_name="smartfarm_chunks",
     vectors_config={
         "dense_text": models.VectorParams(
-            size=512,
+            size=1024,
             distance=models.Distance.COSINE,
         ),
         "dense_image": models.VectorParams(
-            size=512,
+            size=1024,
             distance=models.Distance.COSINE,
         ),
     },
@@ -990,6 +990,9 @@ services:
 
 16. **LLM-as-Judge**: Zheng, L., et al. "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena." NeurIPS 2023.
 
+17. **BGE-M3**: Chen, J., et al. "BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation." arXiv:2402.03216.
+    - https://huggingface.co/BAAI/bge-m3
+
 ---
 
 ## 부록 A. 2026-02-18 갱신: 휴리스틱 배제형 DAT 적용
@@ -1010,6 +1013,7 @@ services:
 - mDAPT: https://arxiv.org/abs/2503.17488
 - Retrofitting Small Multilingual Models for Dense Retrieval: https://arxiv.org/abs/2507.02705
 - MAD-X: https://aclanthology.org/2020.emnlp-main.617/
+- BGE-M3 (2024, multilingual 100+ / MIT / HF Inference enabled): https://huggingface.co/BAAI/bge-m3
 
 ### A.4 실험 게이트 반영
 - 성능 향상 확인 시에만 계획서 고정 항목으로 채택한다.

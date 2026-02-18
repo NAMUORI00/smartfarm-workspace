@@ -5,6 +5,7 @@
 - 운영 원칙 고정:
 1. LLM 경로: Featherless (OpenAI-compatible)
 2. 임베딩 경로: Hugging Face Inference API `feature-extraction`
+3. 임베딩 기본모델: `BAAI/bge-m3`(1024d, MIT, multilingual)로 상향
 
 ## 2. 참조 연구(다국어/경량 중심)
 - mDAPT: https://arxiv.org/abs/2503.17488
@@ -22,6 +23,7 @@
 - 파일: `smartfarm-benchmarking/benchmarking/embeddings/huggingface_api_provider.py`
 1. 임베딩 provider를 HF API로 단일화
 2. 요청 timeout + retry + 캐시 적용(휴리스틱 fallback 없음)
+3. 기본 임베딩 모델을 `sentence-transformers/distiluse-base-multilingual-cased-v2`(512d)에서 `BAAI/bge-m3`(1024d)로 교체
 
 ## 4. 실험 설정 (1차 빠른 검증 러닝)
 - 데이터셋: `agxqa`, `2wiki`, `hotpotqa`
@@ -34,6 +36,7 @@
 4. `smartfarm-benchmarking/output/paper_tables_ieee.tex`
 
 ## 5. 결과 (Strongest baseline 대비 Ours 절대차)
+> 아래 수치는 모델 교체 이전 러닝 기준이며, `BAAI/bge-m3` 기준 재측정이 필요함.
 | Dataset | Δ nDCG@10 (보강 전) | Δ nDCG@10 (보강 후) | Δ MRR (보강 전) | Δ MRR (보강 후) |
 |---|---:|---:|---:|---:|
 | agxqa | -0.1855 | -0.0279 | -0.2109 | -0.0365 |
