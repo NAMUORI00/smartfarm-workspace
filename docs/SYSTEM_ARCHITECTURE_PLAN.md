@@ -154,8 +154,8 @@ IEEE Access 등재를 위한 **4가지 명확한 기여점**:
 | 계층 | 기술 | 버전/스펙 | 역할 | 학술적 근거 |
 |---|---|---|---|---|
 | **전처리** | Unstructured | OSS | 멀티모달 문서 파싱 (PDF/Table/Image) | ETL for RAG (Unstructured.io, 2024) |
-| **추출 LLM** | OpenAI-compatible (설정 가능) | 실험: Kimi-K2.5 | 엔티티/관계 추출, 다중 모델 폴백 지원 | MoonshotAI (2025) 등 |
-| **임베딩 모델** | OpenAI-compatible (설정 가능) | 실험: Qwen3-VL-Embedding-2B (512d) | Dense+Image 벡터 생성 | 환경변수로 모델/차원 변경 가능 |
+| **추출 LLM** | OpenAI-compatible (설정 가능) | 실험: `openai/gpt-oss-120b` | 엔티티/관계 추출 | OpenAI-compatible 운영 표준 |
+| **임베딩 모델** | Hugging Face Inference API | 실험: `sentence-transformers/distiluse-base-multilingual-cased-v2` (512d) | Dense+Image 벡터 생성 | HF feature-extraction API |
 | **벡터 DB** | Qdrant | v1.10+ | Dense(HNSW) + Sparse(BM25) 하이브리드 | Filterable HNSW, Named Vectors |
 | **그래프 DB** | FalkorDB | v4+ | 지식그래프 저장 + Cypher 탐색 | GraphBLAS sparse matrix, <1ms 지연 |
 | **답변 생성 LLM** | llama.cpp / OpenAI-compatible (설정 가능) | 실험: Qwen3-4B-Q4_K_M | 엣지 디바이스 답변 생성 | 4-bit 양자화 GGUF |
@@ -183,7 +183,7 @@ Unstructured Partition
     ├── Table Elements ───────▸ HTML 테이블 보존 + 텍스트 요약 생성
     │                              └── table_id, html, summary, source_doc_id
     │
-    ├── Image Elements ───────▸ Base64 인코딩 + Kimi-K2.5 캡셔닝
+    ├── Image Elements ───────▸ Base64 인코딩 + OpenAI-compatible 캡셔닝
     │                              └── image_id, base64, caption, source_doc_id
     │
     └── Formula Elements ─────▸ LaTeX 보존 + 의미 설명 생성
@@ -333,7 +333,7 @@ from qdrant_client import QdrantClient, models
 client = QdrantClient(host="localhost", port=6333)
 
 # Multi-vector 컬렉션: Dense (text + image) + Sparse를 하나의 point에 저장
-# 임베딩 모델/차원은 코드 기본값으로 고정 (Qwen3-VL-Embedding-2B, 512d)
+# 임베딩 모델/차원은 코드 기본값으로 고정 (distiluse-base-multilingual-cased-v2, 512d)
 client.create_collection(
     collection_name="smartfarm_chunks",
     vectors_config={

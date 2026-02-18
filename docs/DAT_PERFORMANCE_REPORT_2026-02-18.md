@@ -1,70 +1,68 @@
 # DAT 성능 검증 리포트 (2026-02-18)
 
 ## 1. 목적
-- 목표: 휴리스틱 없이(`query rule` 제거) `ours_structural`의 채널 융합을 데이터 기반으로 적응시키고 성능 향상 여부를 검증.
-- 반영 원칙: OpenAI-compatible 인터페이스만 사용, 벤치마크는 공개 HF 데이터셋 기반.
+- 휴리스틱 없는 DAT(`ours_structural`)를 유지한 상태에서 성능 게이트 통과 가능성을 검증.
+- 운영 원칙 고정:
+1. LLM 경로: Featherless (OpenAI-compatible)
+2. 임베딩 경로: Hugging Face Inference API `feature-extraction`
 
 ## 2. 참조 연구(다국어/경량 중심)
 - mDAPT: https://arxiv.org/abs/2503.17488
 - Retrofitting Small Multilingual Models for Dense Retrieval: https://arxiv.org/abs/2507.02705
-- MAD-X (adapter-based multilingual transfer): https://aclanthology.org/2020.emnlp-main.617/
+- MAD-X: https://aclanthology.org/2020.emnlp-main.617/
 
-해석:
-- 공통적으로 "도메인/언어별 적응을 고정 규칙이 아닌 학습(또는 튜닝)으로 처리"하는 방향이 유효하다는 점을 채택.
+## 3. 코드 반영 사항
+- 파일: `smartfarm-benchmarking/benchmarking/experiments/paper_eval.py`
+1. DAT 가중치 탐색 해상도 상향(`grid_step 0.1 -> 0.05`)
+2. 튜닝/평가 분할에서 순서편향 제거(데이터셋별 deterministic shuffle)
+3. 퍼채널 후보 랭크 심도는 기존 deep candidate 유지(`k*4`)
 
-## 3. 적용한 방법 (DAT: Data-driven Adaptive Tuning)
-- 위치: `smartfarm-benchmarking/benchmarking/experiments/paper_eval.py`
-- 변경점:
-1. `ours_structural`에서 쿼리 휴리스틱 가중치 제거.
-2. 데이터셋별 튜닝 샘플에 대해 `dense/sparse/graph` 가중치를 grid search로 최적화(`nDCG@k` 기준).
-3. 선택된 가중치를 동일 데이터셋 평가에 적용.
-- 산출 메타: 결과 JSON에 `adaptive_fusion.mode=data_driven`, `weights` 기록.
+- 파일: `smartfarm-search/core/embeddings/huggingface_api_provider.py`
+- 파일: `smartfarm-ingest/pipeline/embeddings/huggingface_api_provider.py`
+- 파일: `smartfarm-benchmarking/benchmarking/embeddings/huggingface_api_provider.py`
+1. 임베딩 provider를 HF API로 단일화
+2. 요청 timeout + retry + 캐시 적용(휴리스틱 fallback 없음)
 
-## 4. 실험 설정
-- 비교 대상:
-1. Baseline: `paper_eval_local.json` (휴리스틱 버전)
-2. DAT: `paper_eval_dat_local.json` (데이터 기반 적응)
+## 4. 실험 설정 (1차 빠른 검증 러닝)
 - 데이터셋: `agxqa`, `2wiki`, `hotpotqa`
-- 쿼리 수: 각 40
-- 실행 모드: retrieval-only
+- Seed: `42, 52, 62`
+- `max_queries=20`, `k=10`, retrieval-only
+- 산출물:
+1. `smartfarm-benchmarking/output/paper_eval_main.json`
+2. `smartfarm-benchmarking/output/comparison_report.json`
+3. `smartfarm-benchmarking/output/paper_tables_ieee.md`
+4. `smartfarm-benchmarking/output/paper_tables_ieee.tex`
 
-주의:
-- Featherless는 `chat/completions`, `models`는 정상 응답(200) 확인.
-- `embeddings` 엔드포인트는 404로 확인되어, 실험은 OpenAI-compatible 로컬 임베딩 mock 서버를 사용.
-
-## 5. 결과 (ours_structural)
-| Dataset | nDCG@10 (Before → DAT) | Δ | MRR (Before → DAT) | Δ |
+## 5. 결과 (Strongest baseline 대비 Ours 절대차)
+| Dataset | Δ nDCG@10 (보강 전) | Δ nDCG@10 (보강 후) | Δ MRR (보강 전) | Δ MRR (보강 후) |
 |---|---:|---:|---:|---:|
-| agxqa | 0.5478 → 0.9150 | +0.3672 | 0.4310 → 0.8865 | +0.4555 |
-| 2wiki | 0.2738 → 0.6122 | +0.3384 | 0.3317 → 0.7293 | +0.3976 |
-| hotpotqa | 0.5238 → 0.7367 | +0.2129 | 0.5082 → 0.8675 | +0.3593 |
-| Macro Avg | 0.4485 → 0.7547 | +0.3062 | 0.4236 → 0.8277 | +0.4041 |
+| agxqa | -0.1855 | -0.0279 | -0.2109 | -0.0365 |
+| 2wiki | -0.0393 | +0.0050 | -0.0507 | +0.0104 |
+| hotpotqa | -0.0189 | -0.0312 | -0.0248 | -0.0766 |
+| Macro Avg | -0.0812 | -0.0180 | -0.0955 | -0.0342 |
 
-선택된 가중치(데이터 기반):
-- agxqa: `dense=0.0, sparse=1.0, graph=0.0`
-- 2wiki: `dense=0.0, sparse=1.0, graph=0.0`
-- hotpotqa: `dense=0.0, sparse=0.8, graph=0.2`
+- 현재 `comparison_report.json` 기준 `overall_pass=false`
+- 즉, 게이트 조건(`+0.02 절대개선 + 유의성`)은 아직 미충족
 
 ## 6. 해석
-- 현재 실험 조건에서는 dense 신호 품질이 약해, DAT가 dense 기여를 자동으로 축소하고 sparse/graph를 강화.
-- 결과적으로 휴리스틱 없이도 `ours_structural`의 성능이 안정적으로 개선됨.
-- 후속으로 실제 임베딩 품질이 개선되면, DAT는 dense 가중치를 다시 확장할 수 있어 구조적으로 유연함.
+- DAT 보강으로 agxqa/2wiki는 유의미하게 개선되었지만, hotpotqa에서 하락.
+- 현 단계는 “전반적 격차 축소”까지 달성했고 “게이트 통과”는 미달.
+- 다음 사이클은 데이터셋별 분리 DAT 프로파일(학습/적용 분기)과 채널 신뢰도 보정을 우선 검토.
 
 ## 7. 재현 커맨드
 ```bash
-# baseline
 LLM_BACKEND=openai_compatible \
-OPENAI_COMPAT_BASE_URL=http://127.0.0.1:48080/v1 \
-OPENAI_COMPAT_API_KEY=dummy \
-../.venv/bin/python -m benchmarking.experiments.paper_eval \
-  --dataset agxqa,2wiki,hotpotqa --method all --k 10 --max-queries 40 \
-  --seed 42 --retrieval-only --out output/paper_eval_local.json
-
-# DAT
-LLM_BACKEND=openai_compatible \
-OPENAI_COMPAT_BASE_URL=http://127.0.0.1:48080/v1 \
-OPENAI_COMPAT_API_KEY=dummy \
-../.venv/bin/python -m benchmarking.experiments.paper_eval \
-  --dataset agxqa,2wiki,hotpotqa --method all --k 10 --max-queries 40 \
-  --seed 42 --retrieval-only --out output/paper_eval_dat_local.json
+OPENAI_COMPAT_BASE_URL=https://api.featherless.ai/v1 \
+OPENAI_COMPAT_API_KEY=*** \
+OPENAI_COMPAT_MODEL=openai/gpt-oss-120b \
+HF_TOKEN=*** \
+../.venv/bin/python -m benchmarking.experiments.run_main_eval \
+  --dataset agxqa,2wiki,hotpotqa \
+  --method bm25_only,dense_only,rrf,graph_only,lightrag,ours_structural \
+  --seeds 42,52,62 \
+  --max-queries 20 \
+  --bootstrap-resamples 1000 \
+  --out-json output/paper_eval_main.json \
+  --out-csv output/paper_eval_main.csv \
+  --comparison-out output/comparison_report.json
 ```

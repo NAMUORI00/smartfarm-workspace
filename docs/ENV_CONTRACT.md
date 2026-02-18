@@ -10,7 +10,7 @@
 - `JUDGE_RUNTIME` (`api|self_host`)
 - `RAGAS_BASE_URL` (`JUDGE_RUNTIME=api`일 때 필수)
 - `RAGAS_API_KEY` (`JUDGE_RUNTIME=api`일 때 필수)
-- `HF_TOKEN` (선택)
+- `HF_TOKEN` (선택, Hugging Face 데이터셋/임베딩 API 사용 시 필요)
 
 ## 2) Removed/Deprecated Keys
 - `OPENAI_COMPAT_GRAPH_MODEL`
