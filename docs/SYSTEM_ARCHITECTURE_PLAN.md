@@ -989,3 +989,31 @@ services:
 15. **BEIR**: Thakur, N., et al. "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of IR Models." NeurIPS 2021.
 
 16. **LLM-as-Judge**: Zheng, L., et al. "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena." NeurIPS 2023.
+
+---
+
+## 부록 A. 2026-02-18 갱신: 휴리스틱 배제형 DAT 적용
+
+### A.1 정책 반영
+- Stage 2 퓨전에서 쿼리 규칙 기반(휴리스틱) 가중치를 사용하지 않는다.
+- `dense/sparse/graph` 채널 가중치는 데이터 기반 튜닝(DAT: Data-driven Adaptive Tuning)으로 결정한다.
+- 인터페이스는 기존 원칙대로 `openai_compatible`, `llama_cpp`만 유지한다.
+
+### A.2 구현 반영 위치
+- `smartfarm-benchmarking/benchmarking/experiments/paper_eval.py`
+- 반영 내용:
+1. `ours_structural`에 대한 채널 가중치 자동 탐색(grid search, nDCG@k 목적함수)
+2. 결과 JSON에 `adaptive_fusion` 메타데이터 기록
+3. A1~A7 실험 경로 재사용(회귀 없이 동작)
+
+### A.3 근거 연구(다국어/경량)
+- mDAPT: https://arxiv.org/abs/2503.17488
+- Retrofitting Small Multilingual Models for Dense Retrieval: https://arxiv.org/abs/2507.02705
+- MAD-X: https://aclanthology.org/2020.emnlp-main.617/
+
+### A.4 실험 게이트 반영
+- 성능 향상 확인 시에만 계획서 고정 항목으로 채택한다.
+- 최신 측정 결과(40 queries x 3 datasets, retrieval-only)에서 `ours_structural`의 Macro 평균:
+  - `nDCG@10`: `0.4485 -> 0.7547` (+0.3062)
+  - `MRR`: `0.4236 -> 0.8277` (+0.4041)
+- 상세 리포트: `docs/DAT_PERFORMANCE_REPORT_2026-02-18.md`

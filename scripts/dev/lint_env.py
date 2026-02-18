@@ -25,8 +25,6 @@ PROJECT_PREFIXES = (
     "JUDGE_",
     "HF_",
     "HUGGING_",
-    "FEATHERLESS_",
-    "KIMI_",
     "EXTRACTOR_",
     "EMBED_",
     "LLMLITE_",

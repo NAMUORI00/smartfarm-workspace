@@ -13,8 +13,6 @@
 - `HF_TOKEN` (선택)
 
 ## 2) Removed/Deprecated Keys
-- `FEATHERLESS_*`
-- `KIMI_*`
 - `OPENAI_COMPAT_GRAPH_MODEL`
 - `HUGGING_FACE_HUB_TOKEN`
 - 프로젝트 내부 fallback 체인용 키:
