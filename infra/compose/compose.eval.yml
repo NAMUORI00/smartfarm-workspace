@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  benchmarking:
+    build: ./smartfarm-benchmarking
+    environment:
+      SMARTFARM_WORKSPACE_ROOT: /workspace
+      LLM_BACKEND: ${LLM_BACKEND:-openai_compatible}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
+      JUDGE_RUNTIME: ${JUDGE_RUNTIME:-api}
+      RAGAS_BASE_URL: ${RAGAS_BASE_URL:-}
+      RAGAS_API_KEY: ${RAGAS_API_KEY:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace/smartfarm-benchmarking
+    command: >
+      python -m benchmarking.experiments.ablation
+      --dataset agxqa
+      --out output/ablation_results.json

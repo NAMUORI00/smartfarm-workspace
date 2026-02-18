@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./data/index/qdrant:/qdrant/storage
+
+  falkordb:
+    image: falkordb/falkordb:v4.6.1
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/index/falkordb:/data
+    environment:
+      FALKORDB_ARGS: "--maxmemory 512mb"
+
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    command:
+      - --model
+      - ${LLAMA_MODEL_PATH:-/models/Qwen3-4B-Q4_K_M.gguf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CTX_SIZE:-8192}
+      - --parallel
+      - ${LLAMA_PARALLEL:-2}
+      - --cont-batching
+      - --n-gpu-layers
+      - ${GPU_LAYERS:--1}
+    ports:
+      - "${LLAMA_HOST_PORT:-45857}:8080"
+    volumes:
+      - ./smartfarm-llm-inference/models:/models
+
+  api:
+    build: ./smartfarm-search
+    depends_on:
+      - qdrant
+      - falkordb
+      - llama
+    ports:
+      - "41177:41177"
+    environment:
+      LLM_BACKEND: ${LLM_BACKEND:-llama_cpp}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}

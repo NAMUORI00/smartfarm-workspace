@@ -33,7 +33,7 @@ IEEE Access 등재를 위한 **4가지 명확한 기여점**:
 
 #### C1: 도메인 특화 Multimodal Knowledge Graph Construction Pipeline
 - **Unstructured** 기반 멀티모달 파싱 (PDF 테이블/이미지/수식)
-- **Kimi-K2.5** 비전 LLM을 활용한 농업 도메인 엔티티/관계 추출
+- **OpenAI-compatible LLM** (설정 가능; 실험: Kimi-K2.5)을 활용한 농업 도메인 엔티티/관계 추출
 - **FalkorDB** 기반 영속적 계층구조 지식그래프 (Nested/Hierarchical)
 - 차별점: RAG-Anything은 인메모리 그래프만 지원 → 우리는 영속 DB + Cypher 쿼리
 
@@ -44,15 +44,15 @@ IEEE Access 등재를 위한 **4가지 명확한 기여점**:
 - 차별점: LightRAG의 Dual-Level을 실제 그래프 DB로 구현
 
 #### C3: Edge-Optimized Deployment Architecture
-- 인제스트: Kimi-K2.5 API (온라인 사전처리) → 지식그래프/벡터 인덱스 생성
-- 런타임: **Qwen3-4B Q4** (4-bit 양자화, ~2.3GB VRAM) 로컬 추론
+- 인제스트: OpenAI-compatible LLM API (온라인 사전처리) → 지식그래프/벡터 인덱스 생성
+- 런타임: **경량 LLM** (설정 가능; 실험: Qwen3-4B Q4_K_M, ~2.3GB VRAM) llama.cpp 기반 로컬 추론
 - 엣지 디바이스 (8GB RAM) 단독 운영 가능한 오프라인 QA 시스템
-- 차별점: 기존 GraphRAG는 GPT-4급 필요 → 우리는 4B 경량 모델로 답변 생성
+- 차별점: 기존 GraphRAG는 GPT-4급 필요 → 우리는 4B급 경량 모델로 답변 생성
 
 #### C4: Comprehensive RAGAS-based Evaluation with OSS Judge LLM
-- **RAGAS** 프레임워크 기반 6개 메트릭 자동 평가
-- **OSS 120B LLM** (DeepSeek-R1/Qwen3-235B 등) Judge 모델로 상용 API 의존 제거
-- 농업 도메인 특화 벤치마크 데이터셋 구축
+- **RAGAS** 프레임워크 기반 자동 평가 (설정 가능한 메트릭; 실험: Faithfulness, Context Precision/Recall, Answer Relevancy)
+- **OSS Judge LLM** (설정 가능; 실험: Qwen3-235B-A22B 또는 동급 MoE) 으로 상용 API 의존 제거
+- 농업 도메인 벤치마크 데이터셋 활용 (실험: AgXQA 등 공개 농업 QA)
 - 차별점: 기존 연구는 GPT-4 Judge 의존 → 완전 오픈소스 평가 파이프라인
 
 ---
@@ -149,15 +149,18 @@ IEEE Access 등재를 위한 **4가지 명확한 기여점**:
 
 ### 2.2 기술 스택 상세
 
+> **모델 유연성 원칙**: 아래 표의 LLM/임베딩 모델은 모두 OpenAI-compatible API를 통해 **설정 가능(configurable)**합니다. 특정 모델에 의존하지 않으며, 논문 실험에서는 아래 기본 모델을 사용하여 검증합니다.
+
 | 계층 | 기술 | 버전/스펙 | 역할 | 학술적 근거 |
 |---|---|---|---|---|
 | **전처리** | Unstructured | OSS | 멀티모달 문서 파싱 (PDF/Table/Image) | ETL for RAG (Unstructured.io, 2024) |
-| **비전/추출 LLM** | Kimi-K2.5 | 256K ctx | 엔티티/관계 추출 + 이미지 분석 | MoonshotAI (2025), 멀티모달 네이티브 |
-| **벡터 DB** | Qdrant | v1.10+ | Dense(HNSW) + Sparse(BM25) 하이브리드 | Filterable HNSW, RRF 네이티브 |
+| **추출 LLM** | OpenAI-compatible (설정 가능) | 실험: Kimi-K2.5 | 엔티티/관계 추출, 다중 모델 폴백 지원 | MoonshotAI (2025) 등 |
+| **임베딩 모델** | OpenAI-compatible (설정 가능) | 실험: Qwen3-VL-Embedding-2B (512d) | Dense+Image 벡터 생성 | 환경변수로 모델/차원 변경 가능 |
+| **벡터 DB** | Qdrant | v1.10+ | Dense(HNSW) + Sparse(BM25) 하이브리드 | Filterable HNSW, Named Vectors |
 | **그래프 DB** | FalkorDB | v4+ | 지식그래프 저장 + Cypher 탐색 | GraphBLAS sparse matrix, <1ms 지연 |
-| **답변 생성 LLM** | Qwen3-4B-Q4 | 4-bit AWQ | 엣지 디바이스 답변 생성 | Alibaba (2025), 83% RAG score |
-| **평가 프레임워크** | RAGAS | v0.2+ | 6개 메트릭 자동 평가 | Es et al. (ACL 2024) |
-| **평가 Judge LLM** | OSS 120B | MoE | RAGAS 메트릭 판정 | LLM-as-Judge (2024) |
+| **답변 생성 LLM** | llama.cpp / OpenAI-compatible (설정 가능) | 실험: Qwen3-4B-Q4_K_M | 엣지 디바이스 답변 생성 | 4-bit 양자화 GGUF |
+| **평가 프레임워크** | RAGAS | v0.2+ | 자동 평가 (메트릭 설정 가능) | Es et al. (ACL 2024) |
+| **평가 Judge LLM** | OpenAI-compatible (설정 가능) | 실험: OSS 120B급 MoE | RAGAS 메트릭 판정 | LLM-as-Judge (2024) |
 | **참조 프레임워크** | RAG-Anything | — | Multimodal KG 아키텍처 참조 | Guo et al. (arXiv:2510.12323) |
 
 ---
@@ -210,14 +213,18 @@ tables      = [e for e in elements if e.category == "Table"]
 images      = [e for e in elements if e.category == "Image"]
 ```
 
-#### 3.1.2 Kimi-K2.5 기반 지식 추출
+#### 3.1.2 OpenAI-compatible LLM 기반 지식 추출
 
 **LLM Extraction Pipeline** (RAG-Anything의 Multimodal Analysis Engine 참조):
 
+> 추출 인터페이스는 OpenAI-compatible 고정이며,
+> 모델 선택은 `OPENAI_COMPAT_MODEL` 1개 키와 코드 내 안전 폴백 체인으로 운영합니다.
+
 ```
                     ┌──────────────────────────┐
-                    │   Kimi-K2.5 API          │
-                    │   ──────────────────     │
+                    │  LLM Extractor           │
+                    │  (OpenAI-compatible API)  │
+                    │  실험: Kimi-K2.5           │
                     │                          │
   Text Chunks ─────▸│  Entity Extraction       │──▸ Entities + Relations
                     │  ・작물/병해/환경/재배법   │
@@ -325,12 +332,17 @@ from qdrant_client import QdrantClient, models
 
 client = QdrantClient(host="localhost", port=6333)
 
-# Multi-vector 컬렉션: Dense + Sparse를 하나의 point에 저장
+# Multi-vector 컬렉션: Dense (text + image) + Sparse를 하나의 point에 저장
+# 임베딩 모델/차원은 코드 기본값으로 고정 (Qwen3-VL-Embedding-2B, 512d)
 client.create_collection(
     collection_name="smartfarm_chunks",
     vectors_config={
-        "dense": models.VectorParams(
-            size=384,                    # all-MiniLM-L6-v2
+        "dense_text": models.VectorParams(
+            size=512,
+            distance=models.Distance.COSINE,
+        ),
+        "dense_image": models.VectorParams(
+            size=512,
             distance=models.Distance.COSINE,
         ),
     },
@@ -341,21 +353,21 @@ client.create_collection(
     },
 )
 
-# Named Vectors로 Dense + Sparse 동시 저장
+# Named Vectors로 Dense(text/image) + Sparse 동시 저장
 client.upsert(
     collection_name="smartfarm_chunks",
     points=[
         models.PointStruct(
             id=chunk_id,
             vector={
-                "dense": dense_embedding,   # [0.1, 0.3, ...]
-                "sparse": sparse_vector,    # {indices: [1, 5, 100], values: [0.8, 0.2, 0.5]}
+                "dense_text": text_embedding,   # [0.1, 0.3, ...]
+                "dense_image": image_embedding,  # 이미지 모달리티용 (없으면 zero)
+                "sparse": sparse_vector,         # {indices: [1, 5, 100], values: [0.8, 0.2, 0.5]}
             },
             payload={
                 "text": chunk_text,
                 "source_doc": doc_id,
                 "modality": "text",         # text | table | image
-                "graph_entity_ids": ["crop_tomato", "disease_leaf_mold"],
             },
         )
     ],
@@ -475,18 +487,22 @@ class TriChannelFusion:
         )
 ```
 
-#### 3.2.3 Qwen3-4B-Q4 답변 생성
+#### 3.2.3 엣지 답변 생성 (Configurable LLM)
 
-**엣지 배포 스펙**:
+> 답변 생성 LLM은 최소 환경변수(`LLM_BACKEND`, `OPENAI_COMPAT_*`)로 설정합니다.
+> 인터페이스 표준은 `llama_cpp` 또는 `openai_compatible` 두 가지이며,
+> 나머지 네트워크/튜닝 파라미터는 코드 기본값으로 고정합니다.
+
+**엣지 배포 스펙** (실험 기준):
 
 | 항목 | 스펙 |
 |---|---|
-| 모델 | Qwen3-4B-Instruct |
-| 양자화 | AWQ 4-bit (Q4_K_M) |
-| 추론 엔진 | llama.cpp (GGUF) 또는 vLLM |
-| VRAM 사용량 | ~2.3 GB |
+| 모델 (실험) | Qwen3-4B-Instruct |
+| 양자화 | Q4_K_M (GGUF) |
+| 추론 엔진 | llama.cpp (GGUF) 또는 OpenAI-compatible API |
+| VRAM 사용량 | ~2.3 GB (실험 모델 기준) |
 | 생성 속도 (예상) | 10~15 tok/s (CPU), 40~60 tok/s (GPU) |
-| 컨텍스트 윈도우 | 32K 토큰 |
+| 컨텍스트 윈도우 | 설정 가능 (`LLAMA_CTX_SIZE`, 기본 8192) |
 | thinking 모드 | 비활성 (non-thinking, 빠른 응답) |
 
 **RAG 프롬프트 구조**:
@@ -524,12 +540,16 @@ Cite sources using [Source N] format.
 | **Context Precision** | 검색 품질 | `context_precision` | 검색된 문서 중 관련 문서 비율 |
 | **Context Recall** | 검색 커버리지 | `context_recall` | 필요한 정보가 모두 검색되었는지 |
 | **Answer Relevancy** | 답변 적절성 | `answer_relevancy` | 답변이 질문에 적절한 정도 |
-| **Answer Correctness** | 정답 정확도 | `answer_correctness` | Ground Truth와의 일치도 |
 | **Latency (p50/p95)** | 응답 속도 | 커스텀 | 엣지 디바이스 실용성 |
+
+> 추가 메트릭(answer_correctness 등)은 RAGAS 설정으로 필요 시 확장 가능합니다.
 
 #### 3.3.2 Judge LLM 구성
 
-**OSS 120B Judge 모델 후보**:
+> Judge LLM은 OpenAI-compatible API를 통해 **설정 가능**합니다.
+> 환경변수는 `JUDGE_RUNTIME`, `RAGAS_BASE_URL`, `RAGAS_API_KEY`만 사용합니다.
+
+**OSS Judge 모델 후보** (실험에서 사용 가능한 모델):
 
 | 모델 | 파라미터 | 특징 | 호스팅 |
 |---|---|---|---|
@@ -548,16 +568,15 @@ from ragas.metrics import (
     context_precision,
     context_recall,
     answer_relevancy,
-    answer_correctness,
 )
 from ragas.llms import LangchainLLMWrapper
 
-# OSS Judge LLM (Qwen3-235B via vLLM server)
+# Judge LLM (strict env: JUDGE_RUNTIME, RAGAS_BASE_URL, RAGAS_API_KEY)
 judge_llm = LangchainLLMWrapper(
     ChatOpenAI(
-        model="Qwen/Qwen3-235B-A22B-Instruct",
-        base_url="http://judge-server:8000/v1",
-        api_key="not-needed",
+        model="openai/gpt-oss-120b",
+        base_url=os.getenv("RAGAS_BASE_URL", "http://judge-server:8000/v1"),
+        api_key=os.getenv("RAGAS_API_KEY", "not-needed"),
     )
 )
 
@@ -568,7 +587,6 @@ results = evaluate(
         context_precision,
         context_recall,
         answer_relevancy,
-        answer_correctness,
     ],
     llm=judge_llm,
 )
@@ -576,7 +594,11 @@ results = evaluate(
 
 #### 3.3.3 농업 도메인 벤치마크 데이터셋
 
-**데이터셋 구성** (300+ QA pairs):
+> 데이터셋은 환경변수(`--dataset`)로 설정 가능합니다.
+> 실험에서는 AgXQA (HuggingFace 공개 농업 QA) 등을 사용하며,
+> HotPotQA, MuSiQue, SciFact, 2WikiMultiHopQA 등 추가 벤치마크도 지원합니다.
+
+**질의 유형별 벤치마크 구성**:
 
 | 카테고리 | 예시 질의 | 질의 유형 | 목표 |
 |---|---|---|---|
@@ -677,13 +699,10 @@ services:
     build: ./smartfarm-ingest
     depends_on: [qdrant, falkordb]
     environment:
-      KIMI_API_KEY: ${KIMI_API_KEY}
-      KIMI_API_BASE: "https://api.moonshot.cn/v1"
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-      FALKORDB_HOST: falkordb
-      FALKORDB_PORT: 6379
-      UNSTRUCTURED_API_KEY: ${UNSTRUCTURED_API_KEY}  # optional: SaaS
+      LLM_BACKEND: ${LLM_BACKEND:-openai_compatible}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
     volumes:
       - ./data/raw:/app/data/raw
       - ./data/index:/app/data/index
@@ -693,8 +712,9 @@ services:
     build: ./smartfarm-benchmarking
     depends_on: [qdrant, falkordb]
     environment:
-      JUDGE_LLM_BASE_URL: "http://judge-server:8000/v1"
-      JUDGE_LLM_MODEL: "Qwen/Qwen3-235B-A22B-Instruct"
+      JUDGE_RUNTIME: ${JUDGE_RUNTIME:-api}
+      RAGAS_BASE_URL: ${RAGAS_BASE_URL}
+      RAGAS_API_KEY: ${RAGAS_API_KEY}
 
 volumes:
   qdrant_data:
@@ -758,10 +778,10 @@ services:
     ports: ["8000:8000"]
     depends_on: [qdrant, falkordb, llm-server]
     environment:
-      QDRANT_HOST: qdrant
-      FALKORDB_HOST: falkordb
-      LLM_API_BASE: "http://llm-server:8080/v1"
-      LLM_MODEL: "qwen3-4b"
+      LLM_BACKEND: "llama_cpp"
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
     deploy:
       resources:
         limits:
