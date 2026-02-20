@@ -51,3 +51,16 @@ services:
       OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
       OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
+      HF_TOKEN: ${HF_TOKEN:-}
+      DAT_MODE: ${DAT_MODE:-hybrid}
+      FUSION_PROFILE_PATH: ${FUSION_PROFILE_PATH:-data/artifacts/fusion_weights.runtime.json}
+      FUSION_PROFILE_META_PATH: ${FUSION_PROFILE_META_PATH:-data/artifacts/fusion_profile_meta.runtime.json}
+      DAT_MIN_WEIGHT_PER_CHANNEL: ${DAT_MIN_WEIGHT_PER_CHANNEL:-0.10}
+      DAT_MAX_WEIGHT_PER_CHANNEL: ${DAT_MAX_WEIGHT_PER_CHANNEL:-0.80}
+      DAT_MAX_DELTA_PER_UPDATE: ${DAT_MAX_DELTA_PER_UPDATE:-0.15}
+      DAT_MIN_PROFILE_QUERIES: ${DAT_MIN_PROFILE_QUERIES:-300}
+      DAT_PROFILE_TTL_HOURS: ${DAT_PROFILE_TTL_HOURS:-168}
+      PRIVATE_STORE_DB_PATH: ${PRIVATE_STORE_DB_PATH:-data/kb/private_overlay.sqlite}
+      LOG_PATH: ${LOG_PATH:-data/logs/query.log}
+    volumes:
+      - ./data:/app/data
