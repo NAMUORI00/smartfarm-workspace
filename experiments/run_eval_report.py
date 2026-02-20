@@ -29,13 +29,14 @@ for _path in [REPO_ROOT / "smartfarm-search", REPO_ROOT / "smartfarm-benchmarkin
 from benchmarking.metrics.qa_metrics import exact_match, f1_score
 from benchmarking.metrics.ragas_adapter import RagasRecord, evaluate_ragas
 from benchmarking.metrics.retrieval_metrics import recall_at_k
+from benchmarking.env_contract import resolve_judge_runtime, resolve_ragas_runtime
 from benchmarking.utils.canonical_id_mapper import (
     map_gold_ids_to_canonical_doc_ids,
     map_retrieved_hits_to_canonical_doc_ids,
 )
 from core.Config.Settings import settings
 
-ALLOWED_MODES = ("no_rag", "no_rag_ragprompt", "naive_rag", "ours")
+ALLOWED_MODES = ("no_rag", "naive_rag", "ours")
 DEFAULT_MODES = ("no_rag", "naive_rag", "ours")
 DEFAULT_INDEX_PATHS = ("data/index", "smartfarm-search/data/cache")
 _TOKEN_RE = re.compile(r"\s+")
@@ -893,9 +894,6 @@ class ModeRunner:
             if self.mode == "no_rag":
                 prompt = sample.question
                 private_present = False
-            elif self.mode == "no_rag_ragprompt":
-                prompt = build_rag_prompt(sample.question, "")
-                private_present = False
             elif self.mode == "naive_rag":
                 if self.retrieval is None:
                     raise RuntimeError("naive_rag requires retrieval service")
@@ -979,7 +977,7 @@ class ModeRunner:
         recall_k = None
         recall_doc = None
         recall_chunk = None
-        if self.mode not in {"no_rag", "no_rag_ragprompt"}:
+        if self.mode != "no_rag":
             k_metric = max(1, int(k_used or len(retrieved_doc_ids) or 1))
             if self.metric_unit in {"doc", "both"} and sample.gold_canonical_doc_ids:
                 recall_doc = float(
@@ -1074,29 +1072,23 @@ def _run_mode(
         row.index_size_mb = float(index_size_mb)
         rows.append(row)
 
-        if with_ragas and (not sample.gold_answers) and (not row.error) and row.contexts:
+        if with_ragas and (not row.error):
             ragas_records.append(
                 RagasRecord(
                     question=sample.question,
                     answer=row.answer,
                     contexts=list(row.contexts),
-                    ground_truth="",
+                    ground_truth=(sample.gold_answers[0] if sample.gold_answers else ""),
                 )
             )
 
     ragas_result: Dict[str, Any] = {"enabled": bool(with_ragas), "status": "disabled"}
     if with_ragas:
-        if not str(ragas_base_url or "").strip():
+        if not ragas_records:
             ragas_result = {
                 "enabled": True,
                 "status": "skipped",
-                "reason": "ragas_base_url_missing",
-            }
-        elif not ragas_records:
-            ragas_result = {
-                "enabled": True,
-                "status": "skipped",
-                "reason": "no_records_without_gold_answer_or_context",
+                "reason": "no_records",
             }
         else:
             ragas_result = evaluate_ragas(
@@ -1152,21 +1144,27 @@ def _parse_args() -> argparse.Namespace:
         default=",".join(DEFAULT_INDEX_PATHS),
         help="Comma-separated index paths for index_size_mb",
     )
-    p.add_argument("--with-ragas", action="store_true", help="Enable RAGAS for rows without gold_answer")
+    p.add_argument("--with-ragas", action="store_true", help="Enable RAGAS judge metrics")
     p.add_argument(
         "--ragas-model",
-        default=str(os.getenv("OPENAI_COMPAT_MODEL", "openai/gpt-oss-120b")),
+        default="openai/gpt-oss-120b",
         help="Judge model for RAGAS",
     )
     p.add_argument(
         "--ragas-base-url",
-        default=str(os.getenv("RAGAS_BASE_URL", "")),
-        help="RAGAS judge base URL",
+        default="",
+        help="RAGAS judge base URL (optional override; fallback to OPENAI_COMPAT_BASE_URL)",
     )
     p.add_argument(
         "--ragas-api-key",
-        default=str(os.getenv("RAGAS_API_KEY", "")),
-        help="RAGAS judge API key",
+        default="",
+        help="RAGAS judge API key (optional override; fallback to OPENAI_COMPAT_API_KEY)",
+    )
+    p.add_argument(
+        "--judge-runtime",
+        default=resolve_judge_runtime(str(os.getenv("JUDGE_RUNTIME", "api"))),
+        choices=("api", "self_host"),
+        help="Judge runtime mode",
     )
     return p.parse_args()
 
@@ -1233,6 +1231,28 @@ def main() -> int:
     all_rows: List[EvalRow] = []
     mode_summary: Dict[str, Dict[str, Any]] = {}
     started = time.perf_counter()
+    resolved_ragas_base_url = str(args.ragas_base_url or "").strip()
+    resolved_ragas_api_key = str(args.ragas_api_key or "").strip()
+    ragas_endpoint_source = ""
+    ragas_api_key_source = ""
+    if bool(args.with_ragas):
+        _, resolved_ragas_base_url, resolved_ragas_api_key = resolve_ragas_runtime(
+            judge_runtime=str(args.judge_runtime or "api"),
+            base_url=resolved_ragas_base_url,
+            api_key=resolved_ragas_api_key,
+        )
+        if str(args.ragas_base_url or "").strip():
+            ragas_endpoint_source = "arg_override"
+        elif str(os.getenv("RAGAS_BASE_URL", "") or "").strip():
+            ragas_endpoint_source = "env_ragas"
+        else:
+            ragas_endpoint_source = "env_openai_compat_fallback"
+        if str(args.ragas_api_key or "").strip():
+            ragas_api_key_source = "arg_override"
+        elif str(os.getenv("RAGAS_API_KEY", "") or "").strip():
+            ragas_api_key_source = "env_ragas"
+        else:
+            ragas_api_key_source = "env_openai_compat_fallback"
 
     for mode in modes:
         mode_rows, summary = _run_mode(
@@ -1247,8 +1267,8 @@ def main() -> int:
             index_size_mb=float(index_size_mb),
             with_ragas=bool(args.with_ragas),
             ragas_model=str(args.ragas_model),
-            ragas_base_url=str(args.ragas_base_url),
-            ragas_api_key=str(args.ragas_api_key),
+            ragas_base_url=str(resolved_ragas_base_url),
+            ragas_api_key=str(resolved_ragas_api_key),
         )
         all_rows.extend(mode_rows)
         mode_summary[mode] = summary
@@ -1312,6 +1332,10 @@ def main() -> int:
                 "llm_provider": str(getattr(settings, "LLM_PROVIDER", "") or ""),
                 "embed_model": str(getattr(settings, "EMBED_MODEL", "") or ""),
                 "ragas_model": str(args.ragas_model),
+                "judge_runtime": str(args.judge_runtime or "api"),
+                "ragas_endpoint_source": str(ragas_endpoint_source or ""),
+                "ragas_api_key_source": str(ragas_api_key_source or ""),
+                "ragas_base_url": str(resolved_ragas_base_url or ""),
             },
             "decoding": {
                 "temperature": temperature,
