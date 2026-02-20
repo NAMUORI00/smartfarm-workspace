@@ -62,6 +62,8 @@ RAG 시스템에서 프라이버시 보존은 아직 초기 연구 단계에 있
 
 농업 도메인 벤치마크는 제한적이며, 한국어 스마트팜 도메인 특화 벤치마크는 부재하다. 이에 본 연구는 IR 메트릭과 RAGAS 기반 reference-free 평가를 조합하고, 오픈소스 120B급 LLM(Qwen3-235B-A22B)을 Judge로 활용하여 상용 API 의존 없이 재현 가능한 평가 체계를 구축한다.
 
+또한 실제 현장 운영 관점에서는 "빠른 첫 토큰"보다 "근거 기반 신뢰성"과 "반복 실행 시 일관성"이 우선될 수 있다. 이에 최근 RAG 평가 실무는 평균 점수뿐 아니라 unsupported claim 비율, citation support율, run-to-run 분산 등 안정성 지표를 함께 보고하는 방향으로 확장되고 있다. 본 연구 역시 동일한 관점에서 속도 지표를 보조 SLA로 취급하고, 신뢰성/안정성 지표를 1차 판단 축으로 둔다.
+
 ## 2.7 Research Gap and Our Contributions
 
 Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
@@ -78,10 +80,9 @@ Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
 
 본 연구는 기존 Graph RAG 및 하이브리드 검색 연구(LightRAG [4], RAG-Anything [38], RRF [12])의 개념을 참고하되, **질의 적응적 검색, 프라이버시 보존, 엣지 배포를 함께 다루는 통합 프레임워크**를 제안한다:
 
-1. **Query-Adaptive Tri-Channel Fusion (C1)**: Qdrant [40]의 Dense+Sparse 네이티브 RRF와 FalkorDB [39]의 Dual-Level 그래프 검색을 질의 유형별 채널 가중치 동적 조정으로 융합한다. GraphRAG-Bench가 경고하는 그래프 노이즈 전파를 Evidence-Anchored Path Context로 차단하며, 그래프가 해가 되는 조건에서는 자동 억제하여 항상 Dense+Sparse Hybrid 이상의 검색 품질을 보장한다.
+1. **Query-Adaptive Tri-Channel Fusion (C1)**: Qdrant [40]의 Dense+Sparse 네이티브 RRF와 FalkorDB [39]의 Dual-Level 그래프 검색을 질의 유형별 채널 가중치 동적 조정으로 융합한다. GraphRAG-Bench가 경고하는 그래프 노이즈 전파를 Evidence-Anchored Path Context로 차단하며, 그래프가 해가 되는 조건에서는 자동 억제하여 성능 저하를 완화한다.
 2. **Edge-Local Private Store (C2)**: 외부지식(공개 문헌) 유입(Ingress)과 민감지식(센서, 메모, 대화) Private Store를 아키텍처적으로 분리한다. 엣지 LLM(Qwen3-4B)이 민감 데이터를 자율 구조화하여 FalkorDB MERGE/Qdrant upsert로 로컬 KB에 증분 반영하며, "내부지식 유출 0(Egress 0)" 운영 요구를 보장한다.
 3. **End-to-End Edge-Deployable SmartFarm RAG System (C3)**: MinerU [41] 기반 멀티모달 파싱, 비전 LLM [46] 기반 지식 추출, FalkorDB+Qdrant 영속 저장, Qwen3-4B Q4 [42] + llama.cpp [20] 엣지 추론, RAGAS [22] + IR 메트릭 2-Track 평가를 하나의 재현 가능한 파이프라인으로 통합하여 8GB RAM 엣지 디바이스에서 동작하는 농업 QA 시스템을 구현한다.
 
-Baseline 비교는 5개 직접 재현 시스템(Dense, Sparse, Hybrid, Graph-only, LightRAG [4])과 문헌 수치 비교 3개(PathRAG, GraphRAG [3], HippoRAG/RAPTOR)를 포함하며, "검색 품질"과 "엣지 런타임 성능"의 trade-off 관점에서 제안 구조의 실용성을 검증한다. 추가로 Global-only vs Global+Private 검색의 품질 차이를 Ablation으로 분석하여 C2의 기여도를 정량적으로 검증한다.
-
+Baseline 비교는 5개 직접 재현 시스템(Dense, Sparse, Hybrid, Graph-only, LightRAG [4])과 문헌 수치 비교 3개(PathRAG, GraphRAG [3], HippoRAG/RAPTOR)를 포함하며, "검색 품질 + 근거 신뢰성 + 엣지 런타임 안정성"의 trade-off 관점에서 제안 구조의 실용성을 검증한다. 추가로 Global-only vs Global+Private 검색의 품질 차이를 Ablation으로 분석하여 C2의 기여도를 정량적으로 검증한다.
 

@@ -84,9 +84,9 @@
 
 [42] Alibaba. (2025). "Qwen3 Technical Report." *Qwen Blog*. ([링크](https://qwenlm.github.io/blog/qwen3/))
 
-[43] FedE4RAG. (2024). "Federated Learning for Privacy-Preserving RAG Systems." *arXiv*. ([링크](https://github.com/FedE4RAG))
+[43] FedE4RAG. (2024). "Federated Learning for Privacy-Preserving RAG Systems." *GitHub*. ([링크](https://github.com/FedE4RAG))
 
-[44] DP-FedLoRA. (2025). "Differentially Private Federated LoRA for On-Device LLM Fine-Tuning." *arXiv*.
+[44] DP-FedLoRA. (2025). "Differentially Private Federated LoRA for On-Device LLM Fine-Tuning." *arXiv preprint*.
 
 [45] Graphiti. (2025). "Building Real-Time Knowledge Graphs with Incremental Updates." *GitHub*. ([링크](https://github.com/getzep/graphiti))
 

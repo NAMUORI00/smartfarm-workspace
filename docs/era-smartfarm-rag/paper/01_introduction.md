@@ -42,17 +42,17 @@
 
 본 연구는 다음의 핵심 질문에 답하고자 한다.
 
-> "온디바이스(엣지) 제약에서도 근거 기반 답변의 신뢰도를 유지하면서, 지연·메모리 부담을 관리할 수 있는가?"
+> "온디바이스(엣지) 제약에서도 근거 기반 답변의 신뢰도와 일관성을 우선적으로 확보하면서, 지연·메모리 부담을 운영 가능한 수준으로 관리할 수 있는가?"
 
 이를 위해 본 연구는 다음 네 가지 목표를 설정한다:
 1. 현장 디바이스에서 동작 가능한 경량 LLM 추론 환경 구축
 2. 매뉴얼·가이드·작업 기록·센서 및 관찰 요약을 참조 지식으로 정리하여 근거 기반 응답 지원
 3. 질의 유형에 따라 검색 및 컨텍스트 길이를 조절해 품질과 비용(자원)의 균형 달성
-4. 응답 시간, 메모리 사용량, 정확도, 근거 적합도, 환각 감소 지표를 통한 성능 평가
+4. 정확도, 근거 적합도, 환각 감소, 반복 실행 안정성(run-to-run variance)을 1차 지표로, 응답 시간/TTFT와 메모리 사용량을 운영 SLA 제약 지표로 분리 평가
 
 이러한 목표를 달성하기 위해 본 연구는 **세 가지 학술적 기여**를 제시한다:
 
-- **C1 (Query-Adaptive Tri-Channel Fusion)**: Qdrant 벡터 DB의 Dense+Sparse 하이브리드 검색과 FalkorDB 그래프 DB의 Dual-Level 검색을 질의 유형에 따라 채널 가중치를 동적으로 조정하는 weighted RRF로 융합한다. Evidence-Anchored Path Context를 통해 그래프 노이즈 전파를 차단하며, 그래프 채널이 해가 되는 조건에서는 자동 억제하여 항상 Dense+Sparse Hybrid 이상의 검색 품질을 보장한다.
+- **C1 (Query-Adaptive Tri-Channel Fusion)**: Qdrant 벡터 DB의 Dense+Sparse 하이브리드 검색과 FalkorDB 그래프 DB의 Dual-Level 검색을 질의 유형에 따라 채널 가중치를 동적으로 조정하는 weighted RRF로 융합한다. Evidence-Anchored Path Context를 통해 그래프 노이즈 전파를 차단하며, 그래프 채널이 해가 되는 조건에서는 자동 억제하여 성능 저하를 완화한다.
 - **C2 (Edge-Local Private Store)**: 공개 문헌 기반 Global KB(서버 구축, 읽기 전용)와 센서·메모·대화 기반 Private Store(엣지 로컬 전용)를 아키텍처 수준에서 분리하고, 엣지 LLM이 민감 데이터를 자율적으로 구조화하여 로컬 KB에 증분 반영함으로써 "내부지식 유출 0(Egress 0)" 운영 요구를 보장한다.
 - **C3 (End-to-End Edge-Deployable SmartFarm RAG System)**: MinerU 기반 멀티모달 파싱, 비전 LLM 기반 지식 추출, FalkorDB+Qdrant 영속 저장, Qwen3-4B Q4 엣지 추론, RAGAS+IR 메트릭 2-Track 평가를 하나의 재현 가능한 파이프라인으로 통합하여 8GB RAM 엣지 디바이스에서 오프라인 동작이 가능한 농업 QA 시스템을 구현한다.
 
