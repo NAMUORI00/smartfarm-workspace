@@ -13,3 +13,6 @@
 [submodule "smartfarm-frontend"]
 	path = smartfarm-frontend
 	url = https://github.com/NAMUORI00/smartfarm-frontend.git
+[submodule "smartfarm-paper"]
+	path = smartfarm-paper
+	url = https://github.com/NAMUORI00/smartfarm-paper.git

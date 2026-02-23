@@ -13,7 +13,7 @@ bash scripts/dev/bootstrap.sh
 
 ## 3. Storage Bootstrap
 ```bash
-python3 scripts/bootstrap_qdrant.py --host localhost --port 6333 --collection smartfarm_chunks --dim 512
+python3 scripts/bootstrap_qdrant.py --host localhost --port 6333 --collection smartfarm_chunks
 python3 scripts/bootstrap_falkordb_schema.py --host localhost --port 6379 --graph smartfarm --schema schema.cypher
 ```
 
@@ -47,3 +47,6 @@ docker compose -f docker-compose.eval.yml up -d
 
 ## 7. Incident Switches
 - `JUDGE_RUNTIME=api|self_host`
+
+## 8. Artifact Policy
+- `smartfarm-benchmarking/output/` 산출물은 재현 실행으로 생성하며 저장소에는 커밋하지 않는다.

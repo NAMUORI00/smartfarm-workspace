@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 
 def main() -> int:
@@ -8,8 +9,8 @@ def main() -> int:
     p.add_argument("--host", default="localhost")
     p.add_argument("--port", type=int, default=6333)
     p.add_argument("--collection", default="smartfarm_chunks")
-    p.add_argument("--dim", type=int, default=512)
     args = p.parse_args()
+    dim = max(64, int(os.getenv("EMBED_DIM", "1024")))
 
     try:
         from qdrant_client import QdrantClient, models
@@ -25,8 +26,8 @@ def main() -> int:
     client.create_collection(
         collection_name=args.collection,
         vectors_config={
-            "dense_text": models.VectorParams(size=int(args.dim), distance=models.Distance.COSINE),
-            "dense_image": models.VectorParams(size=int(args.dim), distance=models.Distance.COSINE),
+            "dense_text": models.VectorParams(size=int(dim), distance=models.Distance.COSINE),
+            "dense_image": models.VectorParams(size=int(dim), distance=models.Distance.COSINE),
         },
         sparse_vectors_config={
             "sparse": models.SparseVectorParams(modifier=models.Modifier.IDF),

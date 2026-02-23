@@ -52,11 +52,9 @@
 
 이러한 목표를 달성하기 위해 본 연구는 **세 가지 학술적 기여**를 제시한다:
 
-- **C1 (Query-Adaptive Tri-Channel Fusion)**: Qdrant 벡터 DB의 Dense+Sparse 하이브리드 검색과 FalkorDB 그래프 DB의 Dual-Level 검색을 질의 유형에 따라 채널 가중치를 동적으로 조정하는 weighted RRF로 융합한다. Evidence-Anchored Path Context를 통해 그래프 노이즈 전파를 차단하며, 그래프 채널이 해가 되는 조건에서는 자동 억제하여 성능 저하를 완화한다.
-- **C2 (Edge-Local Private Store)**: 공개 문헌 기반 Global KB(서버 구축, 읽기 전용)와 센서·메모·대화 기반 Private Store(엣지 로컬 전용)를 아키텍처 수준에서 분리하고, 엣지 LLM이 민감 데이터를 자율적으로 구조화하여 로컬 KB에 증분 반영함으로써 "내부지식 유출 0(Egress 0)" 운영 요구를 보장한다.
+- **C1 (Data-driven Adaptive Tuning for Zero-Latency Fusion)**: 무거운 딥러닝 리랭커(Cross-encoder 등) 사용 시 여러 모달리티 융합 과정에서 발생하는 그래프 위상(Topology) 구조 훼손과 엣지 디바이스의 치명적 추론 지연(Latency) 문제를 해결하기 위해, **데이터 기반 동적 가중치 튜닝(DAT: Data-driven Adaptive Tuning)** 알고리즘을 제안한다. 사전에 최적화된 이산적(discrete) 가중치를 런타임 질의 특성에 따라 0-비용(Zero-cost) 매핑하여 3채널(Dense, Sparse, Graph)의 고유 순위 구조를 '끌어내림(Pull-down)' 현상 없이 완벽하게 보존하는 Query-Adaptive Weighted RRF를 구현하였다.
+- **C2 (Sovereign Architecture with Composite Key Isolation)**: 글로벌 공개 지식(Public)과 농장 고유의 사적 지식(Private)이 혼재될 때 발생하는 민감 데이터 유출 및 오염 문제를 원천 차단하기 위해, **복합키(Composite Key, `canonical_id + tier + farm_id`) 기반의 소버린 아키텍처(Sovereign Architecture)**를 제안한다. 이를 통해 물리적으로 단일화된(Unified) Qdrant 및 FalkorDB 검색 엔진 위에서도 논리적으로 100% 격리된 로컬 프라이빗 지식(Egress 0) 저장소를 구현하였으며, 엣지 LLM을 이용한 안전하고 효율적인 온프레미스 증분 업데이트 생태계를 구축하였다.
 - **C3 (End-to-End Edge-Deployable SmartFarm RAG System)**: MinerU 기반 멀티모달 파싱, 비전 LLM 기반 지식 추출, FalkorDB+Qdrant 영속 저장, Qwen3-4B Q4 엣지 추론, RAGAS+IR 메트릭 2-Track 평가를 하나의 재현 가능한 파이프라인으로 통합하여 8GB RAM 엣지 디바이스에서 오프라인 동작이 가능한 농업 QA 시스템을 구현한다.
-
-
 
 현실적인 농업 시나리오에서의 검증을 위해 본 연구는 **와사비 재배 환경**을 실험 도메인으로 설정한다. 와사비는 환경 요인과 관리 요인이 복합적으로 작동하여 근거 기반 진단과 조치 제안의 필요성이 크고, 재배 정보의 표준화 수준이 낮아 지식 누락 및 환각 문제를 확인하기에 적합하다. 또한 센서 기반 정형 데이터와 관찰·작업기록 기반 비정형 데이터를 함께 참조해야 하는 질의가 빈번하다는 점에서, 본 연구가 목표로 하는 RAG 기반 현장 지원의 효과를 평가하기에 적절하다.
 

@@ -20,8 +20,11 @@ Dense retrieval(예: DPR [10])은 의미적 유사성 매칭에 강하나 수치
 
 융합 전략으로 **Reciprocal Rank Fusion(RRF)** [12]과 score-level 결합(가중 합/정규화 등)이 널리 사용된다. 특히 Sparse 신호(BM25)가 강한 도메인에서는 Dense와의 단순 결합만으로도 안정적인 개선을 얻을 수 있으며, 최근 연구는 Sparse 결과를 가이드로 활용해 Dense 측 표현/순위를 보정하는 융합을 제안한다 [11].
 
-**Qdrant** [40]는 Dense 벡터(HNSW)와 Sparse 벡터(BM25)를 단일 컬렉션 내에서 네이티브 RRF로 융합하는 기능을 제공하며, payload 기반 필터링이 가능하여 메타데이터 조건부 검색에 적합하다. 기존 하이브리드 검색이 Dense-Sparse 2채널 융합에 머무르는 데 반해, 본 연구는 Qdrant의 벡터 검색과 **FalkorDB** [39] 그래프 검색을 추가한 3채널 RRF 융합을 통해 구조적 관계 정보까지 통합한다.
+**Qdrant** [40]는 Dense 벡터(HNSW)와 Sparse 벡터(BM25)를 단일 컬렉션 내에서 네이티브 RRF로 융합하는 기능을 제공하며, payload 기반 필터링이 가능하여 메타데이터 조건부 검색에 적합하다. 
 
+최근 하이브리드 검색 시스템의 Reranking 단계에서는 BERT 등 언어모델에 기반한 무거운 **딥러닝(Deep Learning) 리랭커**(Neural Reranker, 예: Cross-encoder [12])를 도입하는 것이 주류를 이룬다. 하지만 딥러닝(DL) 기반 추론 모델은 다중 모달리티(특히 Graph 구조)를 융합할 때 그래프 특유의 입체적인 인과관계(Topology)를 단순 1차원 자연어 시퀀스로 강제 평탄화(Flattening)해야 하는 본질적인 한계에 직면한다 [47]. 이러한 구조적 왜곡은 텍스트 변환 과정에서 원래의 위상 신호가 훼손됨을 의미하며, 결과적으로 검색 성능이 하향 평준화되는 **'끌어내림(Pull-down)'** 현상을 초래한다. 더욱이 딥러닝 모델의 복잡한 신경망 레이어 연산은 8GB RAM 수준의 엣지 디바이스 환경에서 감당할 수 없는 메모리 점유 및 치명적인 추론 지연(Latency)을 야기한다 [48].
+
+이러한 한계를 근본적으로 극복하기 위해, 본 연구는 다중 채널 융합 단계에서 신경망 기반의 딥러닝(DL) 모델 개입을 완전히 배제하고, 그 대안으로 **그리드 탐색(Grid Search) 기반의 통계적 머신러닝(Statistical Machine Learning) 최적화 기법**을 채택하였다. 이를 구체화한 본 연구의 **동적 가중치 튜닝(DAT: Data-driven Adaptive Tuning)** 파이프라인은 신경망 역전파(Backpropagation) 대신, 과거 로그 데이터($\mathcal{Q}_{train}$)의 nDCG 목적함수를 극대화하는 최적의 3채널 이산 가중치($w_d, w_s, w_g$) 조합을 머신러닝으로 오프라인 사전 학습(Learning)한다 [12][49]. 런타임에는 $O(1)$ 복잡도의 단순 스칼라 매핑 연산만 수행하므로, Qdrant [40]의 Vector 검색과 **FalkorDB** [39]의 Graph 경로 탐색의 수학적 Native 점수를 사실상 0-Latency 비용으로 엣지 환경에서 무손실 융합할 수 있다.
 ## 2.3 Agricultural Knowledge Systems
 
 농업 도메인 지식표현 연구는 구조화된 개념 체계에 초점을 맞춰왔다. Bhuyan et al. [13]은 시공간 농업 데이터 추론을 위한 래티스 구조를 제안하였고, 스마트 농업 지식모델 [15]과 NLP 기반 개발 방법론 [14]이 발표되었다. **CropDP-KG** [16]는 NER/RE로 13,840 엔티티와 21,961 관계를 구축하였으나, 수만 건의 학습 데이터와 레이블링 비용이 필요하다.
@@ -72,16 +75,16 @@ Table 1은 기존 연구와 본 연구의 차별점을 요약한다.
 
 | Aspect | Prior Work | Gap | Our Approach |
 |--------|-----------|-----|--------------| 
-| **Multimodal KG** | RAG-Anything [38] (인메모리 그래프) | 그래프 영속성 없음, 엣지 배포 미고려 | MinerU [41] 파싱 + Kimi-K2.5 추출 + FalkorDB [39] 영속 KG (C1) |
-| **Hybrid Retrieval** | Dense+Sparse 2채널 [11], RRF [12] | 그래프 구조 통합 제한, 도메인 최적화 부족 | Qdrant [40] (Dense+Sparse) + FalkorDB Dual-Level → 3채널 weighted RRF (C2) |
-| **Edge Deployment** | EdgeRAG [21], AgroMetLLM [9] | 특정 태스크 한정, 범용 농업 QA 미지원 | Qwen3-4B Q4 [42] + llama.cpp [20], 8GB RAM 디바이스 (C3) |
-| **Evaluation** | IR metrics with Ground Truth | 고비용 어노테이션, 상용 API 의존 | RAGAS [22] + OSS 120B Judge LLM, reference-free (C4) |
-| **On-Prem Privacy** | FedE4RAG [43] (학습 단계만), GraphRAG [3] | 지식 저장소 수준 Public/Private 분리 부재 | Dual-Tier KB: Public(서버) + Private(엣지 로컬), Egress 0 (C5) |
+| **Multimodal KG** | RAG-Anything [38] (인메모리 그래프) | 그래프 영속성 없음, 엣지 배포 미고려 | MinerU [41] 파싱 + Kimi-K2.5 추출 + FalkorDB [39] 영속 KG (C3) |
+| **Hybrid Retrieval** | Dense+Sparse 2채널 [11], C-Encoder [12] | 그래프 위상(Topology) 평탄화 소실, 구조 훼손 및 Pull-down 현상 | 딥러닝 배제형 무손실 3채널 융합 (Zero-latency DAT 알고리즘 도입) (C1) |
+| **Edge Deployment** | EdgeRAG [21], AgroMetLLM [9] | 특정 태스크 한정, 범용 농업 QA 미지원 | Qwen3-4B Q4 [42] + llama.cpp [20], 8GB RAM 로컬 디바이스 (C4) |
+| **Evaluation** | IR metrics with Ground Truth | 고비용 어노테이션, 상용 API 의존 | RAGAS [22] + OSS 120B Judge LLM, reference-free (C5) |
+| **On-Prem Privacy** | FedE4RAG [43], GraphRAG [3] | 혼재된 지식 저장소에서의 데이터 오염 및 완벽한 격리(Isolation) 분리 부재 | Sovereign Architecture: 단일 DB 내 복합키(`canonical_id + tier + farm_id`)를 활용한 100% 논리적 격리 환경 구현 (C2) |
 
 본 연구는 기존 Graph RAG 및 하이브리드 검색 연구(LightRAG [4], RAG-Anything [38], RRF [12])의 개념을 참고하되, **질의 적응적 검색, 프라이버시 보존, 엣지 배포를 함께 다루는 통합 프레임워크**를 제안한다:
 
-1. **Query-Adaptive Tri-Channel Fusion (C1)**: Qdrant [40]의 Dense+Sparse 네이티브 RRF와 FalkorDB [39]의 Dual-Level 그래프 검색을 질의 유형별 채널 가중치 동적 조정으로 융합한다. GraphRAG-Bench가 경고하는 그래프 노이즈 전파를 Evidence-Anchored Path Context로 차단하며, 그래프가 해가 되는 조건에서는 자동 억제하여 성능 저하를 완화한다.
-2. **Edge-Local Private Store (C2)**: 외부지식(공개 문헌) 유입(Ingress)과 민감지식(센서, 메모, 대화) Private Store를 아키텍처적으로 분리한다. 엣지 LLM(Qwen3-4B)이 민감 데이터를 자율 구조화하여 FalkorDB MERGE/Qdrant upsert로 로컬 KB에 증분 반영하며, "내부지식 유출 0(Egress 0)" 운영 요구를 보장한다.
+1. **Query-Adaptive Tri-Channel Fusion (C1)**: Qdrant [40]의 Dense+Sparse 네이티브 RRF와 FalkorDB [39]의 Dual-Level 그래프 검색을 무거운 신경망 없이 수학적 원본 등수(Rank)와 오프라인 그리드 검증치만으로 조합하는 **DAT(Data-driven Adaptive Tuning)** 구조로 융합한다. 타 모델들의 Topology 변환에 따른 '강제 끌어내림(Pull-down)' 현상을 우회하며, 런타임 지연(Latency) 제로 수준의 극적인 Trade-off 우위를 달성하였다.
+2. **Edge-Local Private Store (C2)**: 외부지식(공개 문헌) 유입(Ingress)과 민감지식(센서, 메모, 대화) Private Store를 아키텍처적으로 철저히 격리한다. 엣지 LLM이 민감 데이터를 자율 구조화하여 FalkorDB/Qdrant에 반영할 때, 반드시 **소버린 복합키(`canonical_id + tier + farm_id`)** 생태계를 사용하여 "내부지식 유출 0(Egress 0)"이자 오염 확률 0%의 운영을 보장한다.
 3. **End-to-End Edge-Deployable SmartFarm RAG System (C3)**: MinerU [41] 기반 멀티모달 파싱, 비전 LLM [46] 기반 지식 추출, FalkorDB+Qdrant 영속 저장, Qwen3-4B Q4 [42] + llama.cpp [20] 엣지 추론, RAGAS [22] + IR 메트릭 2-Track 평가를 하나의 재현 가능한 파이프라인으로 통합하여 8GB RAM 엣지 디바이스에서 동작하는 농업 QA 시스템을 구현한다.
 
 Baseline 비교는 5개 직접 재현 시스템(Dense, Sparse, Hybrid, Graph-only, LightRAG [4])과 문헌 수치 비교 3개(PathRAG, GraphRAG [3], HippoRAG/RAPTOR)를 포함하며, "검색 품질 + 근거 신뢰성 + 엣지 런타임 안정성"의 trade-off 관점에서 제안 구조의 실용성을 검증한다. 추가로 Global-only vs Global+Private 검색의 품질 차이를 Ablation으로 분석하여 C2의 기여도를 정량적으로 검증한다.

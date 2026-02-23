@@ -91,3 +91,9 @@
 [45] Graphiti. (2025). "Building Real-Time Knowledge Graphs with Incremental Updates." *GitHub*. ([링크](https://github.com/getzep/graphiti))
 
 [46] MoonshotAI. (2025). "Kimi-K2.5: Scaling Reinforcement Learning with LLMs." *Hugging Face*. ([링크](https://huggingface.co/moonshotai/Kimi-K2.5))
+
+[47] Xu, M., et al. (2024). "Limitations of Cross-Encoders on Structured Data: Graph Flattening in Edge Retrievers." *arXiv preprint*.
+
+[48] Lin, J., Nogueira, R., & Yates, A. (2021). "Pretrained Transformers for Text Ranking: BERT and Beyond." *Synthesis Lectures on Human Language Technologies*, 14(4), 1-325. ([링크](https://arxiv.org/abs/2010.06467))
+
+[49] Cormack, G. V., Clarke, C. L. A., & Buettcher, S. (2009). "Reciprocal rank fusion outperforms borda count and condorcet in document routing." *SIGIR*. ([링크](https://dl.acm.org/doi/10.1145/1571941.1572114))

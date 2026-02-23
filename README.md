@@ -25,7 +25,7 @@ ERA-SmartFarm-RAG 통합 워크스페이스입니다.
 ## Bootstrap
 ```bash
 bash scripts/dev/bootstrap.sh
-python3 scripts/bootstrap_qdrant.py --host localhost --port 6333 --collection smartfarm_chunks --dim 512
+python3 scripts/bootstrap_qdrant.py --host localhost --port 6333 --collection smartfarm_chunks
 python3 scripts/bootstrap_falkordb_schema.py --host localhost --port 6379 --graph smartfarm --schema schema.cypher
 ```
 
@@ -60,5 +60,4 @@ docker compose -f docker-compose.ingest.yml up -d
 - `GET /health`
 
 ## Notes
-- `legacy` / `legacy-v2` 브랜치는 참조용으로 유지됩니다.
 - 본 워크스페이스는 API/ingest/benchmarking 우선이며 UI는 비포함입니다.
