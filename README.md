@@ -37,6 +37,7 @@ python3 scripts/dev/lint_env.py --env-file .env
 
 ## Quick Start (Edge)
 ```bash
+bash scripts/dev/pull_core_local_models.sh
 docker compose -f docker-compose.edge.yml up -d
 curl -sS http://localhost:41177/health
 ```
