@@ -151,6 +151,11 @@ Thumbs.db
 /datasets/
 /output/
 
+# GPT-Pro handoff package outputs (compressed research context)
+gpt-pro-handoff/
+gpt-pro-handoff-*/
+/.tmp/gpt-pro-handoff-*/
+
 # Temporary files
 *.tmp
 *.temp
