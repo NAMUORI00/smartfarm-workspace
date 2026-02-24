@@ -47,10 +47,18 @@ services:
     ports:
       - "41177:41177"
     environment:
-      LLM_BACKEND: ${LLM_BACKEND:-llama_cpp}
-      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
-      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
-      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
+      LLM_BACKEND: ${CORE_LLM_BACKEND:-llama_cpp}
+      LLMLITE_HOST: ${CORE_LLMLITE_HOST:-http://llama:8080}
+      LLMLITE_MODEL: ${CORE_LLMLITE_MODEL:-Qwen3-4B-Q4_K_M}
+      OPENAI_COMPAT_BASE_URL: ${CORE_OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${CORE_OPENAI_COMPAT_API_KEY:-}
+      OPENAI_COMPAT_MODEL: ${CORE_OPENAI_COMPAT_MODEL:-openai/gpt-oss-120b}
+      EMBED_BACKEND: ${CORE_EMBED_BACKEND:-sentence_transformers_local}
+      EMBED_MODEL: ${CORE_EMBED_MODEL:-/app/models/embeddings/BAAI__bge-m3}
+      EMBED_DIM: ${CORE_EMBED_DIM:-1024}
+      EMBED_DEVICE: ${CORE_EMBED_DEVICE:-cpu}
+      EMBED_BATCH_SIZE: ${CORE_EMBED_BATCH_SIZE:-8}
+      EMBED_LOCAL_NORMALIZE: ${CORE_EMBED_LOCAL_NORMALIZE:-true}
       HF_TOKEN: ${HF_TOKEN:-}
       DAT_MODE: ${DAT_MODE:-hybrid}
       FUSION_PROFILE_PATH: ${FUSION_PROFILE_PATH:-data/artifacts/fusion_weights.runtime.json}
@@ -64,3 +72,4 @@ services:
       LOG_PATH: ${LOG_PATH:-data/logs/query.log}
     volumes:
       - ./data:/app/data
+      - ./smartfarm-search/models:/app/models
