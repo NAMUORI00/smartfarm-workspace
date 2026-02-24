@@ -16,6 +16,27 @@ services:
     volumes:
       - ./data/index/falkordb:/data
 
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    command:
+      - --model
+      - ${LLAMA_MODEL_PATH:-/models/Qwen3-4B-Q4_K_M.gguf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CTX_SIZE:-8192}
+      - --parallel
+      - ${LLAMA_PARALLEL:-2}
+      - --cont-batching
+      - --n-gpu-layers
+      - ${GPU_LAYERS:--1}
+    ports:
+      - "${LLAMA_HOST_PORT:-45857}:8080"
+    volumes:
+      - ./smartfarm-llm-inference/models:/models
+
   ingest-worker:
     build: ./smartfarm-ingest
     depends_on:
@@ -23,9 +44,9 @@ services:
       - falkordb
     environment:
       LLM_BACKEND: ${LLM_BACKEND:-openai_compatible}
-      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-https://api.featherless.ai/v1}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
-      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-openai/gpt-oss-120b}
     volumes:
       - ./data/raw:/app/data/raw
       - ./data/index:/app/data/index
@@ -42,14 +63,18 @@ services:
     depends_on:
       - qdrant
       - falkordb
+      - llama
     environment:
       LLM_BACKEND: ${LLM_BACKEND:-openai_compatible}
-      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-https://api.featherless.ai/v1}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
-      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
+      OPENAI_COMPAT_MODEL: ${OPENAI_COMPAT_MODEL:-openai/gpt-oss-120b}
+      ANSWER_OPENAI_COMPAT_BASE_URL: ${ANSWER_OPENAI_COMPAT_BASE_URL:-http://llama:8080/v1}
+      ANSWER_OPENAI_COMPAT_API_KEY: ${ANSWER_OPENAI_COMPAT_API_KEY:-local-dummy}
+      ANSWER_OPENAI_COMPAT_MODEL: ${ANSWER_OPENAI_COMPAT_MODEL:-Qwen/Qwen3-4B}
       JUDGE_RUNTIME: ${JUDGE_RUNTIME:-api}
-      RAGAS_BASE_URL: ${RAGAS_BASE_URL:-}
-      RAGAS_API_KEY: ${RAGAS_API_KEY:-}
+      RAGAS_BASE_URL: ${RAGAS_BASE_URL:-https://us-central1-aiplatform.googleapis.com/v1/projects/<PROJECT_ID>/locations/us-central1/endpoints/openapi}
+      RAGAS_API_KEY: ${RAGAS_API_KEY:-__VERTEX_ADC__}
       HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - ./data:/app/data
@@ -60,3 +85,5 @@ services:
       --method ours_structural
       --out /app/output/paper_eval.json
       --with-ragas
+      --answer-mode llm_generated
+      --ragas-model openai/gpt-oss-120b-maas
