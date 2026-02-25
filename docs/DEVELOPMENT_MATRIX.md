@@ -35,7 +35,7 @@
 
 ## Compose Profiles
 - `docker compose -f docker-compose.ingest.yml up -d`
-- `docker compose -f docker-compose.edge.yml up -d`
+- `docker compose -f docker-compose.yml up -d`
 - `docker compose -f docker-compose.eval.yml up -d`
 
 ## Phase Gates

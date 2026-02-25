@@ -20,7 +20,7 @@ python3 scripts/bootstrap_falkordb_schema.py --host localhost --port 6379 --grap
 ## 4. Runtime Profiles
 ### Edge
 ```bash
-docker compose -f docker-compose.edge.yml up -d
+docker compose -f docker-compose.yml up -d
 curl -sS http://localhost:41177/health
 ```
 

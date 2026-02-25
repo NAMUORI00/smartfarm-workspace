@@ -10,17 +10,14 @@ ERA-SmartFarm-RAG 통합 워크스페이스입니다.
 - `smartfarm-frontend`: 이번 범위 제외(UI 제외 정책)
 
 ## Core Docs
-- Architecture plan: `docs/SYSTEM_ARCHITECTURE_PLAN.md`
 - Env contract: `docs/ENV_CONTRACT.md`
 - Graph schema seed: `schema.cypher`
 - Release runbook: `docs/RELEASE_RUNBOOK.md`
-- Conformance report: `docs/CONFORMANCE_REPORT.md`
 
 ## Compose Profiles
 - Ingest: `docker-compose.ingest.yml`
-- Edge runtime: `docker-compose.edge.yml`
+- Edge runtime: `docker-compose.yml`
 - Eval batch: `docker-compose.eval.yml`
-- Default alias: `docker-compose.yml` (edge)
 
 ## Bootstrap
 ```bash
@@ -38,7 +35,7 @@ python3 scripts/dev/lint_env.py --env-file .env
 ## Quick Start (Edge)
 ```bash
 bash scripts/dev/pull_core_local_models.sh
-docker compose -f docker-compose.edge.yml up -d
+docker compose -f docker-compose.yml up -d
 curl -sS http://localhost:41177/health
 ```
 
