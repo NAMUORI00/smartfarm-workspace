@@ -168,6 +168,9 @@ gpt-pro-handoff-*/
 # oh-my-claudecode state
 .omc/
 
+# AntiGravity / Gemini AI settings
+.gemini/
+
 # Secrets
 .env.local
 .env.*.local
