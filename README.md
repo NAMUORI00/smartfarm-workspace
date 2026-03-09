@@ -1,61 +1,129 @@
-# SmartFarm Workspace
+# ERA-SmartFarm-RAG
 
-ERA-SmartFarm-RAG 통합 워크스페이스입니다.
+Dense, Sparse, Graph **3채널 검색을 통합하는 엣지 네이티브 RAG 시스템**의 벤치마킹 워크스페이스입니다.
 
-## Rebuilt Modules
-- `smartfarm-search`: Online retrieval API + private overlay
-- `smartfarm-ingest`: Offline ingest (Unstructured + OpenAI-compatible extractor + Qdrant/FalkorDB writers)
-- `smartfarm-benchmarking`: paper_eval / ablation / edge_profile / ragas_eval
-- `smartfarm-llm-inference`: llama.cpp OpenAI-compatible inference
-- `smartfarm-frontend`: 이번 범위 제외(UI 제외 정책)
+## 연구 목적
 
-## Core Docs
-- Env contract: `docs/ENV_CONTRACT.md`
-- Graph schema seed: `schema.cypher`
-- Release runbook: `docs/RELEASE_RUNBOOK.md`
+기존 2채널(Dense+Sparse) 하이브리드 검색에 **Graph 검색을 3번째 채널로 추가**할 때 발생할 수 있는 **Pull-down 현상**(그래프 채널이 오히려 성능을 저하시키는 문제)을 방어하면서, 질의 구조에 따라 Graph 채널을 **억제하거나 활용하는 적응형 3채널 RAG 시스템**을 제안합니다.
 
-## Compose Profiles
-- Ingest: `docker-compose.ingest.yml`
-- Edge runtime: `docker-compose.yml`
-- Eval batch: `docker-compose.eval.yml`
+### 학술적 기여
 
-## Bootstrap
-```bash
-bash scripts/dev/bootstrap.sh
-python3 scripts/bootstrap_qdrant.py --host localhost --port 6333 --collection smartfarm_chunks
-python3 scripts/bootstrap_falkordb_schema.py --host localhost --port 6379 --graph smartfarm --schema schema.cypher
-```
+| ID | 기여 | 설명 |
+|:--:|------|------|
+| **C1** | **질의 적응형 3채널 융합 (DAT)** | 신경망 리랭커 없이 채널 가중치를 질의 유형에 따라 자동 조율하는 DAT(Data-driven Adaptive Tuning) 알고리즘. 오프라인 학습 프로파일을 런타임에서 O(1)으로 참조하여 그래프 인과 구조를 보존하면서 엣지 환경에서 추가 지연 없이 동작 |
+| **C2** | **소버린 데이터 격리** | 공공 지식과 농장 고유 사적 지식의 아키텍처 수준 격리를 통해 민감 데이터 유출을 원천 차단하는 복합키 기반 소버린 아키텍처 |
+| **C3** | **엔드투엔드 엣지 배포** | 멀티모달 문서 파싱 → 지식 그래프·벡터 인덱스 구축 → 경량 LLM 추론 → 자동화 품질 평가를 하나의 재현 가능한 파이프라인으로 통합. 8GB급 엣지 디바이스에서 오프라인 동작 |
 
-## Env Contract
-```bash
-cp .env.example .env
-python3 scripts/dev/lint_env.py --env-file .env
-```
+### 연구 질문
 
-## Quick Start (Edge)
-```bash
-bash scripts/dev/pull_core_local_models.sh
-docker compose -f docker-compose.yml up -d
-curl -sS http://localhost:41177/health
-```
+| RQ | 질문 | 검증 방법 |
+|:--:|------|-----------|
+| **RQ1** | 3채널 DAT 융합이 **고정 3채널의 Pull-down을 방어**하고, Graph가 유효한 질의에서는 **2채널 대비 조건부 이득**을 제공하는가? | IR 메트릭 비교 (Table 1) + RAGAS 평가 (Table 2) |
+| **RQ2** | DAT가 질의 유형별로 채널 가중치를 적응적으로 조정하여, **Graph가 해로운 환경에서는 자동 억제**하고 **유익한 환경에서는 선택적으로 활용**하는가? | Ablation 연구 (Table 3) + Pull-down 분석 + 가중치 적응성 분석 |
+| **RQ3** | 전체 시스템이 엣지 디바이스의 메모리·지연 예산 내에서 실용적으로 동작하는가? | 엣지 프로파일링 (Table 4) |
 
-## Quick Start (Offline Ingest)
-```bash
-docker compose -f docker-compose.ingest.yml up -d
-```
+---
 
-## Dataset Policy (Benchmarking)
-- 기본은 Hugging Face 공개 데이터셋 + 상업적 사용 가능 라이선스만 허용
-- HF 인증은 런타임 환경변수(`HF_TOKEN`)만 사용
+## 실험 설계
 
-## Key API Endpoints
-- `POST /query`
-- `POST /private/ingest/memo`
-- `POST /private/ingest/sensor`
-- `POST /private/ingest/conversation`
-- `POST /admin/purge/private`
-- `POST /admin/purge/private-expired`
-- `GET /health`
+### 벤치마크 데이터셋
 
-## Notes
-- 본 워크스페이스는 API/ingest/benchmarking 우선이며 UI는 비포함입니다.
+| Dataset | Hop 복잡도 | 역할 |
+|---------|:----------:|------|
+| AgXQA | 1-hop | 농업 도메인 QA. Graph 억제 필요 환경에서 DAT 방어력 검증 |
+| HotpotQA | 2-hop | 위키 기반 QA. 단축 추론 존재 시 Graph 기여 한계 관찰 |
+| MuSiQue | 2–4-hop | **진정한 다중홉 벤치마크**. Graph 엔티티 체인 탐색의 핵심 가치 입증 |
+| 2WikiMHQA | 2-hop | 보조 검증. MuSiQue 결과의 일반화 확인 |
+
+### 비교 방법 (Compared Methods)
+
+모든 통제 변인(프롬프트, 임베딩, KG 인덱스)을 동일하게 고정한 상태에서 **융합 전략만 변경**하여 비교합니다. 비교의 초점은 "항상 최고 성능인가"보다는, **Graph를 추가했을 때 생기는 위험을 얼마나 안정적으로 관리하는가**에 있습니다.
+
+| 약칭 | 채널 구성 | 논증 역할 |
+|------|:---------:|----------|
+| dense\_only | D | Dense 단일 채널 상한선. 구조 정보 없이도 강한 벤치마크에서의 기준점 |
+| graph\_only | G | Graph 단독 사용 시 한계와 Pull-down 원인을 설명하는 참조군 |
+| RRF (D+S) | D+S | Graph 추가 **이전**의 산업 표준 2채널 기준점 |
+| RRF (D+S+G, 1:1:1) | D+S+G | 나이브 3채널 균등 융합. Graph를 무조건 더하면 좋아지는지 검증하는 핵심 대조군 |
+| **ours\_structural** | **D+S+G** | **제안 방식 (DAT). Pull-down 방어와 조건부 Graph 활용을 검증하는 대상** |
+
+---
+
+## 실험 결과
+
+> 모든 수치는 **Q_Test (80% Unseen Partition)** 에서 3개 시드(s ∈ {42, 52, 62})의 평균으로 산출.  
+> 가중치 학습에 노출되지 않은 독립 파티션에서만 도출되었음을 보장합니다.
+
+### Table 1. 메인 검색 성능 비교 (RQ1)
+
+> 아래 표에서 **볼드체는 단순 열 최대값이 아니라**, 본 연구의 핵심 주장과 직접 연결되는 비교 포인트를 표시합니다. 즉, 각 데이터셋에서 **2채널 기준점(RRF D+S)**, **나이브 3채널의 Pull-down**, **DAT의 회복 또는 조건부 이득**을 우선적으로 강조합니다.
+
+| Dataset | Method | nDCG@10 | Δ nDCG vs RRF (D+S) | MRR | Recall@10 |
+|---------|--------|:-------:|:-------------------:|:---:|:---------:|
+| **AgXQA** | dense\_only | 0.881 | -0.019 | 0.846 | 0.985 |
+| *(1-hop)* | graph\_only | 0.201 | -0.699 | 0.143 | 0.396 |
+| | **RRF (D+S)** | **0.900** | **0.000** | **0.872** | **0.981** |
+| | **RRF (D+S+G, 1:1:1)** | **0.721** | **-0.179** | **0.655** | 0.929 |
+| | **ours\_structural** | **0.809** | **-0.091** | **0.751** | **0.981** |
+| **2WikiMHQA** | dense\_only | 0.811 | +0.040 | 0.988 | 0.801 |
+| *(2-hop)* | graph\_only | 0.244 | -0.527 | 0.262 | 0.352 |
+| | **RRF (D+S)** | **0.771** | **0.000** | **0.951** | 0.781 |
+| | **RRF (D+S+G, 1:1:1)** | **0.700** | **-0.071** | **0.849** | 0.750 |
+| | **ours\_structural** | **0.788** | **+0.017** | **0.955** | **0.805** |
+| **MuSiQue** | dense\_only | 0.655 | +0.087 | 0.859 | 0.675 |
+| *(2–4-hop)* | graph\_only | 0.009 | -0.559 | 0.009 | 0.018 |
+| | **RRF (D+S)** | **0.568** | **0.000** | **0.747** | 0.617 |
+| | **RRF (D+S+G, 1:1:1)** | **0.512** | **-0.056** | **0.664** | 0.574 |
+| | **ours\_structural** | **0.614** | **+0.046** | **0.789** | **0.669** |
+
+**핵심 관찰:**
+- **AgXQA (1-hop, Graph 억제 시나리오):** 고정 3채널(1:1:1)은 2채널(D+S) 대비 nDCG가 `0.900 -> 0.721`로 급락하며, **-0.179의 Pull-down**이 발생한다. DAT는 Graph를 자동 억제해 `0.809`까지 회복하며 손실을 **-0.091**로 제한한다. 즉, 나이브 3채널이 만든 하락폭의 약 **49.2%**를 줄인다.
+- **2WikiMHQA (2-hop, 보조 검증):** DAT는 2채널 D+S(0.771) 대비 `+0.017`의 소폭 이득을 보이며, AgXQA에서 관찰된 억제 메커니즘이 단순 방어에만 머무르지 않고 중간 난도의 멀티홉 질의에서도 안정적으로 작동함을 시사한다.
+- **MuSiQue (2–4-hop, Graph 활용 시나리오):** DAT(0.614)가 2채널 D+S(0.568) 대비 nDCG를 **+0.046 역전**한다. 진정한 다중홉 추론에서 Graph 채널의 조건부 가치가 입증된다.
+- 즉, 제안 방식의 1차 목표는 **무조건적인 우월성**이 아니라 **3채널 추가로 인한 하방 위험의 통제**와 **Graph가 유효한 환경에서의 조건부 이득**에 있다.
+
+### Table 2. RAGAS 생성 품질 평가 (RQ1)
+
+> AgXQA 기준 · Reference-free · Judge: gpt-oss-120B (Vertex AI) · Answer: Qwen3-4B
+> 이 표 역시 **열 최대값 경쟁**보다는, AgXQA의 Graph 억제 시나리오에서 DAT가 **나이브 3채널 대비 답변 관련성을 회복하는지**를 읽는 것이 중요합니다.
+
+| Method | Faithfulness | Answer Rel. | Context Prec. | Context Recall |
+|--------|:------------:|:-----------:|:-------------:|:--------------:|
+| dense\_only | 0.395 | 0.756 | 0.879 | 0.980 |
+| graph\_only | 0.241 | 0.395 | 0.208 | 0.333 |
+| **RRF (D+S)** | 0.414 | 0.756 | 0.877 | 0.990 |
+| **RRF (D+S+G, 1:1:1)** | 0.444 | **0.726** | **0.683** | 0.989 |
+| **ours\_structural** | 0.443 | **0.766** | **0.787** | **1.000** |
+
+**핵심 관찰:**
+- **Context Precision Pull-down 방어:** 나이브 3채널(1:1:1)은 2채널(D+S) 대비 Context Precision이 `0.877 → 0.683`으로 급락하며 **-0.194의 Pull-down**이 발생한다. DAT는 이를 `0.787`까지 회복하여 하락폭의 **53.6%를 방어**한다. 이는 Table 1의 IR 지표(nDCG) 회복률 49.2%와 유사한 수치로, **검색 품질 개선이 생성 품질에 직접 전이됨**을 시사한다.
+- **Answer Relevancy 역전:** 나이브 3채널이 Answer Relevancy를 `0.756 → 0.726`으로 하락시킬 때, DAT는 이를 **0.766으로 2채널 기준점을 초과 회복**한다.
+- **Context Recall 완벽:** DAT의 Context Recall `1.000`은 동적 가중치가 Graph를 억제하면서도 **검색 완전성을 보존**함을 의미한다.
+- Faithfulness는 `0.444 → 0.443`으로 거의 동일 수준이므로, 이 표는 **생성 품질의 압도적 우월성**보다는 **나이브 3채널 대비 안정성 회복**의 보조 증거로 해석하는 것이 적절하다.
+
+### Table 3. Ablation 연구 (RQ2)
+
+> Q_Test (80%) 기준 · Δ는 전체 모델(ours\_structural) 대비 차이
+
+| ID | Configuration | nDCG@10 | Δ nDCG | MRR | Δ MRR |
+|:--:|---------------|:-------:|:------:|:---:|:-----:|
+| Full | ours\_structural (DAT+Seg+Evid) | TBD | — | TBD | — |
+| A1 | graph\_off | TBD | TBD | TBD | TBD |
+| A2 | sparse\_off | TBD | TBD | TBD | TBD |
+| A3 | dense\_off | TBD | TBD | TBD | TBD |
+| A4 | lowlevel\_only | TBD | TBD | TBD | TBD |
+| A5 | fixed\_weight\_no\_dat | TBD | TBD | TBD | TBD |
+| A6 | dat\_global\_only\_no\_segment | TBD | TBD | TBD | TBD |
+| A7 | no\_evidence\_adjustment | TBD | TBD | TBD | TBD |
+
+### Table 4. 엣지 디바이스 프로파일 (RQ3)
+
+| Metric | Value |
+|--------|:-----:|
+| Retrieval p50 (ms) | TBD |
+| Retrieval p95 (ms) | TBD |
+| Retrieval p99 (ms) | TBD |
+| TTFT p50 (ms) | TBD |
+| TTFT p95 (ms) | TBD |
+| RSS Peak (MB) | TBD |
+| QPS | TBD |
