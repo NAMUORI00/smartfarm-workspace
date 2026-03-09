@@ -16,3 +16,6 @@
 [submodule "smartfarm-paper"]
 	path = smartfarm-paper
 	url = https://github.com/NAMUORI00/smartfarm-paper.git
+[submodule "smartfarm-corpus-pipeline"]
+	path = smartfarm-corpus-pipeline
+	url = https://github.com/NAMUORI00/smartfarm-corpus-pipeline.git
