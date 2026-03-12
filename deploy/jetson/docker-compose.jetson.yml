@@ -1,0 +1,93 @@
+# Jetson-oriented local-only runtime bundle for RQ3 profiling.
+# Budget values are recorded as targets for reporting, not as enforced limits.
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    ports:
+      - "${QDRANT_HOST_PORT:-6333}:6333"
+    volumes:
+      - ../../data/index/qdrant:/qdrant/storage
+    labels:
+      qact.budget_target_mb: "1536"
+
+  falkordb:
+    image: falkordb/falkordb:v4.6.1
+    ports:
+      - "${FALKORDB_HOST_PORT:-6379}:6379"
+    volumes:
+      - ../../data/index/falkordb:/data
+    environment:
+      FALKORDB_ARGS: "--maxmemory 512mb"
+    labels:
+      qact.budget_target_mb: "768"
+
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    command:
+      - --model
+      - ${LLAMA_MODEL_PATH:-/models/Qwen3-4B-Q4_K_M.gguf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CTX_SIZE:-8192}
+      - --parallel
+      - ${LLAMA_PARALLEL:-1}
+      - --cont-batching
+      - --n-gpu-layers
+      - ${GPU_LAYERS:--1}
+    ports:
+      - "${LLAMA_HOST_PORT:-45857}:8080"
+    volumes:
+      - ../../smartfarm-llm-inference/models:/models:ro
+    labels:
+      qact.budget_target_mb: "3584"
+
+  api:
+    build: ../../smartfarm-search
+    depends_on:
+      - qdrant
+      - falkordb
+      - llama
+    ports:
+      - "${API_HOST_PORT:-41177}:41177"
+    environment:
+      LLM_BACKEND: ${CORE_LLM_BACKEND:-llama_cpp}
+      LLMLITE_HOST: ${CORE_LLMLITE_HOST:-http://llama:8080}
+      LLMLITE_MODEL: ${CORE_LLMLITE_MODEL:-Qwen3-4B-Q4_K_M}
+      EMBED_BACKEND: ${CORE_EMBED_BACKEND:-sentence_transformers_local}
+      EMBED_MODEL: ${CORE_EMBED_MODEL:-/app/models/embeddings/BAAI__bge-m3}
+      EMBED_DIM: ${CORE_EMBED_DIM:-1024}
+      EMBED_DEVICE: ${CORE_EMBED_DEVICE:-cpu}
+      EMBED_BATCH_SIZE: ${CORE_EMBED_BATCH_SIZE:-8}
+      EMBED_LOCAL_NORMALIZE: ${CORE_EMBED_LOCAL_NORMALIZE:-true}
+      DAT_MODE: ${DAT_MODE:-hybrid}
+      FUSION_PROFILE_PATH: ${FUSION_PROFILE_PATH:-data/artifacts/fusion_weights.runtime.json}
+      FUSION_PROFILE_META_PATH: ${FUSION_PROFILE_META_PATH:-data/artifacts/fusion_profile_meta.runtime.json}
+      DAT_MIN_WEIGHT_PER_CHANNEL: ${DAT_MIN_WEIGHT_PER_CHANNEL:-0.10}
+      DAT_MAX_WEIGHT_PER_CHANNEL: ${DAT_MAX_WEIGHT_PER_CHANNEL:-0.80}
+      DAT_MAX_DELTA_PER_UPDATE: ${DAT_MAX_DELTA_PER_UPDATE:-0.15}
+      DAT_MIN_PROFILE_QUERIES: ${DAT_MIN_PROFILE_QUERIES:-300}
+      DAT_PROFILE_TTL_HOURS: ${DAT_PROFILE_TTL_HOURS:-168}
+      PRIVATE_STORE_DB_PATH: ${PRIVATE_STORE_DB_PATH:-data/kb/private_overlay.sqlite}
+      LOG_PATH: ${LOG_PATH:-data/logs/query.log}
+    volumes:
+      - ../../data:/app/data
+      - ../../smartfarm-search/models:/app/models:ro
+    labels:
+      qact.budget_target_mb: "1536"
+
+  benchmarking:
+    build: ../../smartfarm-benchmarking
+    depends_on:
+      - api
+    environment:
+      SMARTFARM_WORKSPACE_ROOT: /workspace
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ../../:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace/smartfarm-benchmarking
+    command: ["tail", "-f", "/dev/null"]

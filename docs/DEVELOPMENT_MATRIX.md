@@ -36,7 +36,7 @@
 ## Compose Profiles
 - `docker compose -f docker-compose.ingest.yml up -d`
 - `docker compose -f docker-compose.yml up -d`
-- `docker compose -f docker-compose.eval.yml up -d`
+- `python3 deploy/jetson/build_bundle.py --out-dir output/jetson_bundle`
 
 ## Phase Gates
 - Gate 1: Qdrant/FalkorDB bootstrap + `/health` ready

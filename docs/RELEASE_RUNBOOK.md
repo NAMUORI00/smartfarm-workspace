@@ -29,16 +29,16 @@ curl -sS http://localhost:41177/health
 docker compose -f docker-compose.ingest.yml up -d
 ```
 
-### Eval
+### Jetson RQ3 Bundle
 ```bash
-docker compose -f docker-compose.eval.yml up -d
+python3 deploy/jetson/build_bundle.py --out-dir output/jetson_bundle
 ```
 
 ## 5. Gate Checklist
 - Gate 1: Qdrant/FalkorDB bootstrap success
 - Gate 2: public ingest + artifact export/import success
 - Gate 3: `/query` + private ingest/purge + retrieval kill-switch regression pass
-- Gate 4: paper_eval + ablation(A1~A7) + edge_profile(TTFT/RSS/QPS) artifacts generated
+- Gate 4: paper_eval + ablation(A0~A9) + edge_profile(TTFT/RSS/QPS) artifacts generated
 
 ## 6. Rollback
 - Restore Qdrant snapshot

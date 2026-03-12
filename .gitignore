@@ -34,6 +34,7 @@ MANIFEST
 .env
 .env.*
 !.env.example
+!deploy/jetson/.env.jetson.example
 .venv/
 .venv-*/
 .venv-cuda/
