@@ -168,8 +168,18 @@ gpt-pro-handoff-*/
 # oh-my-claudecode state
 .omc/
 
+# AI agent instruction/config files
+/RULES.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.codex/
+
 # AntiGravity / Gemini AI settings
 .gemini/
+
+# Local scratch space
+/tmp/
 
 # Secrets
 .env.local
